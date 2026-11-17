@@ -20,7 +20,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="app">
             <aside>
               <b>Value</b>
-              <nav>{menu.map(([href, txt]) => <Link key={href} href={href}>{txt}</Link>)}</nav>
+              <nav>
+                {menu.map(([href, txt]) => <Link key={href} href={href}>{txt}</Link>)}
+                {s.rol === "administrador" && <Link href="/usuarios">Usuarios</Link>}
+                <Link href="/cuenta">Mi cuenta</Link>
+              </nav>
               <form action={salir} style={{ marginTop: 24, padding: "0 10px", fontSize: 12 }}>
                 <div>{s.nombre}</div>
                 <div style={{ opacity: 0.7 }}>{s.rol}</div>

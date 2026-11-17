@@ -20,6 +20,11 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
 
 - **Inicio de sesión** con contraseña (scrypt), sesiones de 12 horas, bloqueo tras 5 intentos fallidos,
   registro de accesos y roles (administrador, dirección, contable, gestoría, empleado).
+- **Verificación en dos pasos** (TOTP, RFC 6238) desde *Mi cuenta* con cualquier aplicación de
+  autenticación, con 10 códigos de recuperación de un solo uso. Un código no se puede usar dos veces.
+- **Usuarios** (`/usuarios`, solo administradores): dar acceso con contraseña temporal que hay que cambiar
+  al entrar, cambiar el rol, quitar o devolver el acceso, nueva contraseña y quitar el doble factor a
+  quien pierda el móvil. Nunca se queda la empresa sin administrador y todo queda en la auditoría.
 - **Configuración inicial** en `/configuracion-inicial`, protegida con `SETUP_TOKEN` y de un solo uso.
 - **Clientes**: alta con validación de NIF/CIF.
 - **Factura en PDF** (`/facturas/<id>/pdf`) con los datos del art. 6 del RD 1619/2012 y, al inicio,
@@ -91,7 +96,7 @@ Importe total del registro: en VERI*FACTU es base más cuotas; la retención de 
 (sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la
 causa de exención o no sujeción.
 
-Pendiente dentro de la fase 1: doble factor, gestión de usuarios, envío SOAP a la AEAT con el
+Pendiente dentro de la fase 1: envío SOAP a la AEAT con el
 certificado de la empresa, logotipo en el PDF, causas de exención y la declaración responsable del sistema.
 
 ## Normativa: fechas a 17/11/2026
