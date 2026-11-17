@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { execSync } from "node:child_process";
-import { enEmpresa } from "@/db/cliente";
+import { comprobarRolSeguro, enEmpresa } from "@/db/cliente";
 import { anularFactura, emitirFactura } from "@/lib/facturacion/emitir";
 import { verificarCadena } from "@/lib/verifactu/huella";
 
@@ -87,6 +87,12 @@ d("emisión de facturas en PostgreSQL", () => {
     expect(anul.huellaAnterior).toBe(r.huella);
     await expect(anularFactura(sql, ctx(), r.id, "otra vez")).rejects.toThrow(/ya está anulada/);
     await expect(enEmpresa(sql, empA, (tx) => tx`UPDATE facturas SET anulada = false WHERE id = ${r.id}`)).rejects.toThrow(/vigente/);
+  });
+
+  it("se niega a trabajar con un superusuario", async () => {
+    await expect(comprobarRolSeguro(sql)).resolves.toBeUndefined();
+    const [{ rolsuper }] = await sql`SELECT rolsuper FROM pg_roles WHERE rolname = current_user`;
+    expect(rolsuper).toBe(false);
   });
 
   it("aísla los datos entre empresas", async () => {

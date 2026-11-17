@@ -45,6 +45,9 @@ npm run db:seed                     # muestra EMPRESA_DEMO_ID; añádelo a .env.
 npm run dev
 ```
 
+**Importante:** conecta la aplicación con un rol de PostgreSQL que no sea superusuario ni tenga
+`BYPASSRLS`. Esos roles se saltan el aislamiento entre empresas, y la aplicación se niega a usarlos.
+
 ## Tests
 
 ```bash
