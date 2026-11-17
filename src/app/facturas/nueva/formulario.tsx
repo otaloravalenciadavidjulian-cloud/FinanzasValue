@@ -1,5 +1,6 @@
 "use client";
 import { useActionState } from "react";
+import { CAUSAS_IVA } from "@/lib/fiscal/exenciones";
 import { emitir } from "./acciones";
 
 export function Formulario({ clientes, proyectos, hoy }: { clientes: { id: string; razon_social: string }[]; proyectos: { id: string; nombre: string }[]; hoy: string }) {
@@ -25,7 +26,12 @@ export function Formulario({ clientes, proyectos, hoy }: { clientes: { id: strin
               <td><input name="cantidad" defaultValue={v("cantidad", i, "1")} inputMode="decimal" /></td>
               <td><input name="precio" defaultValue={v("precio", i)} inputMode="decimal" placeholder="0,00" /></td>
               <td><input name="descuento" defaultValue={v("descuento", i, "0")} inputMode="decimal" /></td>
-              <td><select name="iva" defaultValue={v("iva", i, "21")}>{[21, 10, 4, 0].map((x) => <option key={x} value={x}>{x} %</option>)}</select></td>
+              <td><select name="iva" defaultValue={v("iva", i, "21")} aria-label="IVA">
+                {[21, 10, 4].map((x) => <option key={x} value={x}>{x} %</option>)}
+                <optgroup label="Sin IVA (la factura llevará la mención legal)">
+                  {CAUSAS_IVA.map((c) => <option key={c.codigo} value={`0:${c.codigo}`}>0 % · {c.nombre}</option>)}
+                </optgroup>
+              </select></td>
             </tr>
           ))}
         </tbody>

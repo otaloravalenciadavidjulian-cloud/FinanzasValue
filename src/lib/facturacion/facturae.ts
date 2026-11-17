@@ -1,3 +1,4 @@
+import { causaIva } from "@/lib/fiscal/exenciones";
 import { escaparXML } from "@/lib/verifactu/xml";
 import type { DatosFacturaPDF } from "./pdf";
 
@@ -71,7 +72,7 @@ function medioDePago(metodo: string | null | undefined, iban: string | null | un
 export function facturaeXML(d: DatosFacturaPDF): string {
   if (d.anulada) throw new ErrorFacturae("La factura está anulada");
   if (!d.destinatario?.nif) throw new ErrorFacturae("Facturae exige identificar al cliente: no se puede generar para una factura simplificada sin destinatario");
-  if (d.desglose.some((x) => x.tipoIva === 0)) throw new ErrorFacturae("Las líneas al 0 % necesitan la causa de exención, que aún no se recoge");
+  if (d.desglose.some((x) => x.tipoIva === 0 && !x.causaIva)) throw new ErrorFacturae("La factura tiene líneas al 0 % sin causa de exención o no sujeción");
 
   const pais = (d.destinatario.pais ?? "ES").toUpperCase();
   const residencia = pais === "ES" ? "R" : UE.has(pais) ? "U" : "E";
@@ -107,6 +108,9 @@ export function facturaeXML(d: DatosFacturaPDF): string {
   const pago = d.vencimiento ? medioDePago(d.metodoCobro, d.emisor.iban) : null;
   const pagos = pago ? `<PaymentDetails><Installment><InstallmentDueDate>${d.vencimiento}</InstallmentDueDate><InstallmentAmount>${eur(total)}</InstallmentAmount><PaymentMeans>${pago.codigo}</PaymentMeans>` +
     `${pago.iban ? `<AccountToBeCredited><IBAN>${e(pago.iban, 34)}</IBAN></AccountToBeCredited>` : ""}</Installment></PaymentDetails>` : "";
+  // Las menciones de exención, no sujeción o inversión del sujeto pasivo van como literales legales.
+  const menciones = [...new Set(d.desglose.map((x) => causaIva(x.causaIva)?.mencion).filter(Boolean))] as string[];
+  const literales = menciones.length ? `<LegalLiterals>${menciones.map((m) => `<LegalReference>${e(m, 250)}</LegalReference>`).join("")}</LegalLiterals>` : "";
   const notas = d.observaciones ? `<AdditionalData><InvoiceAdditionalInformation>${e(d.observaciones, 2500)}</InvoiceAdditionalInformation></AdditionalData>` : "";
 
   const vendedor = parte({ razonSocial: d.emisor.razonSocial, nif: d.emisor.nif, residencia: "R",
@@ -127,5 +131,5 @@ export function facturaeXML(d: DatosFacturaPDF): string {
     `<InvoiceTotals><TotalGrossAmount>${eur(d.baseCent)}</TotalGrossAmount><TotalGrossAmountBeforeTaxes>${eur(d.baseCent)}</TotalGrossAmountBeforeTaxes>` +
     `<TotalTaxOutputs>${eur(d.cuotaIvaCent)}</TotalTaxOutputs><TotalTaxesWithheld>${eur(d.retencionCent)}</TotalTaxesWithheld><InvoiceTotal>${eur(total)}</InvoiceTotal>` +
     `<TotalOutstandingAmount>${eur(total)}</TotalOutstandingAmount><TotalExecutableAmount>${eur(total)}</TotalExecutableAmount></InvoiceTotals>` +
-    `<Items>${lineas}</Items>${pagos}${notas}</Invoice></Invoices></fe:Facturae>\n`;
+    `<Items>${lineas}</Items>${pagos}${literales}${notas}</Invoice></Invoices></fe:Facturae>\n`;
 }

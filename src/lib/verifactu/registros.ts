@@ -77,8 +77,8 @@ export async function cargarRegistros(tx: Tx, filtro: { facturaId?: string; regi
   if (filas.length === 0) return [];
 
   const facturaIds = [...new Set(filas.map((f) => f.factura_id))];
-  const desgloses = await tx<{ factura_id: string; tipo_iva: string; base_cent: string; cuota_cent: string }[]>`
-    SELECT factura_id, tipo_iva, base_cent, cuota_cent FROM desglose_iva WHERE factura_id = ANY(${facturaIds}::uuid[]) ORDER BY tipo_iva DESC`;
+  const desgloses = await tx<{ factura_id: string; tipo_iva: string; causa_iva: string | null; base_cent: string; cuota_cent: string }[]>`
+    SELECT factura_id, tipo_iva, causa_iva, base_cent, cuota_cent FROM desglose_iva WHERE factura_id = ANY(${facturaIds}::uuid[]) ORDER BY tipo_iva DESC, causa_iva`;
   const conceptos = await tx<{ factura_id: string; concepto: string }[]>`
     SELECT factura_id, concepto FROM lineas_factura WHERE factura_id = ANY(${facturaIds}::uuid[]) ORDER BY orden`;
 
@@ -103,7 +103,7 @@ export async function cargarRegistros(tx: Tx, filtro: { facturaId?: string; regi
         descripcion: f.observaciones?.trim() || conceptos.filter((c) => c.factura_id === f.factura_id).map((c) => c.concepto).join("; "),
         destinatario: f.destinatario ? { razonSocial: f.destinatario.razon_social, nif: f.destinatario.nif, pais: f.destinatario.pais } : null,
         desglose: desgloses.filter((d) => d.factura_id === f.factura_id)
-          .map((d) => ({ tipoIva: Number(d.tipo_iva), baseCent: Number(d.base_cent), cuotaCent: Number(d.cuota_cent) })),
+          .map((d) => ({ tipoIva: Number(d.tipo_iva), causaIva: d.causa_iva, baseCent: Number(d.base_cent), cuotaCent: Number(d.cuota_cent) })),
         cuotaTotalCent: Number(f.cuota_iva_cent),
         importeTotalCent: Number(f.base_cent) + Number(f.cuota_iva_cent),
         rectificacion: f.orig_num_serie ? {

@@ -45,6 +45,17 @@ describe("Facturae 3.2.2", () => {
     if (hayXmllint) expect(validarContraXSD(xml, XSD)).toBeNull();
   });
 
+  it("operaciones exentas con su mención legal", () => {
+    const xml = facturaeXML(base({
+      retencionPct: 0, retencionCent: 0, lineas: [{ concepto: "Mercancía", cantidad: 1, precioUnitarioCent: 50000, descuentoPct: 0, tipoIva: 0, causaIva: "E5", baseCent: 50000 }],
+      desglose: [{ tipoIva: 0, causaIva: "E5", baseCent: 50000, cuotaCent: 0 }], baseCent: 50000, cuotaIvaCent: 0, totalCent: 50000,
+    }));
+    expect(xml).toContain("<TaxRate>0.00</TaxRate>");
+    expect(xml).toContain("<LegalLiterals><LegalReference>Entrega intracomunitaria exenta de IVA (art. 25 de la Ley 37/1992)</LegalReference></LegalLiterals>");
+    if (hayXmllint) expect(validarContraXSD(xml, XSD)).toBeNull();
+    expect(() => facturaeXML(base({ desglose: [{ tipoIva: 0, baseCent: 1, cuotaCent: 0 }] }))).toThrow(/sin causa/);
+  });
+
   it("rechaza lo que Facturae no admite", () => {
     expect(() => facturaeXML(base({ anulada: true }))).toThrow(ErrorFacturae);
     expect(() => facturaeXML(base({ destinatario: null }))).toThrow(ErrorFacturae);

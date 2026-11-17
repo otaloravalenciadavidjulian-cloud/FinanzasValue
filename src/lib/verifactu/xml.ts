@@ -33,6 +33,8 @@ export interface Persona {
 
 export interface LineaDesglose {
   tipoIva: number;
+  /** Al 0 %: E1–E6 (exenta), N1/N2 (no sujeta) o S2 (inversión del sujeto pasivo). */
+  causaIva?: string | null;
   baseCent: number;
   cuotaCent: number;
 }
@@ -134,8 +136,15 @@ function desglose(lineas: LineaDesglose[]): string {
   if (lineas.length === 0 || lineas.length > 12) throw new ErrorXML("El desglose debe tener entre 1 y 12 líneas");
   return el("Desglose", lineas.map((l) => {
     if (l.tipoIva === 0) {
-      // Un 0 % puede ser exención (E1–E6) o no sujeción (N1/N2): no se adivina, hay que indicarlo.
-      throw new ErrorXML("Las líneas al 0 % necesitan indicar la causa de exención o no sujeción, que aún no se recoge");
+      const c = l.causaIva ?? "";
+      // Exportaciones (E2) van con la clave de régimen 02; el resto, régimen general.
+      const regimen = el("Impuesto", "01") + el("ClaveRegimen", c === "E2" ? "02" : "01");
+      if (/^E[1-6]$/.test(c)) return el("DetalleDesglose", regimen + el("OperacionExenta", c) + el("BaseImponibleOimporteNoSujeto", aDecimalAEAT(l.baseCent)));
+      if (c === "N1" || c === "N2") return el("DetalleDesglose", regimen + el("CalificacionOperacion", c) + el("BaseImponibleOimporteNoSujeto", aDecimalAEAT(l.baseCent)));
+      if (c === "S2") return el("DetalleDesglose", regimen + el("CalificacionOperacion", "S2") + el("TipoImpositivo", tipoImpositivo(0)) +
+        el("BaseImponibleOimporteNoSujeto", aDecimalAEAT(l.baseCent)) + el("CuotaRepercutida", aDecimalAEAT(0)));
+      // Facturas antiguas al 0 % sin causa: no se adivina.
+      throw new ErrorXML("Esta factura tiene líneas al 0 % sin causa de exención o no sujeción");
     }
     return el("DetalleDesglose",
       el("Impuesto", "01") +

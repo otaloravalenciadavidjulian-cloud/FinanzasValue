@@ -20,7 +20,7 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
     WHERE f.id = ${id}`;
   if (!f) return null;
   const lineas = await tx`SELECT * FROM lineas_factura WHERE factura_id = ${id} ORDER BY orden`;
-  const desglose = await tx`SELECT * FROM desglose_iva WHERE factura_id = ${id} ORDER BY tipo_iva DESC`;
+  const desglose = await tx`SELECT * FROM desglose_iva WHERE factura_id = ${id} ORDER BY tipo_iva DESC, causa_iva`;
   const dest = f.destinatario as Record<string, string | null> | null;
   const baseCent = Number(f.base_cent);
   const cuotaIvaCent = Number(f.cuota_iva_cent);
@@ -40,9 +40,9 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
     vencimiento: f.venc,
     lineas: lineas.map((l) => ({
       concepto: l.concepto, cantidad: Number(l.cantidad), precioUnitarioCent: Number(l.precio_unitario_cent),
-      descuentoPct: Number(l.descuento_pct), tipoIva: Number(l.tipo_iva), baseCent: Number(l.base_cent),
+      descuentoPct: Number(l.descuento_pct), tipoIva: Number(l.tipo_iva), causaIva: l.causa_iva, baseCent: Number(l.base_cent),
     })),
-    desglose: desglose.map((d) => ({ tipoIva: Number(d.tipo_iva), baseCent: Number(d.base_cent), cuotaCent: Number(d.cuota_cent) })),
+    desglose: desglose.map((d) => ({ tipoIva: Number(d.tipo_iva), causaIva: d.causa_iva, baseCent: Number(d.base_cent), cuotaCent: Number(d.cuota_cent) })),
     baseCent,
     cuotaIvaCent,
     retencionPct: Number(f.retencion_pct),

@@ -15,11 +15,23 @@ export interface Modelo303 {
   plazo: { desde: string; hasta: string };
   devengado: { tipo: number; baseCent: number; cuotaCent: number; casillas: [string, string, string] | null }[];
   rectificaciones: { baseCent: number; cuotaCent: number };
+  /** Ventas sin IVA repercutido por causa (exentas, no sujetas, inversión del sujeto pasivo). */
+  sinIva: { causa: string; baseCent: number }[];
   totalDevengadoCent: number;
   deducible: { baseCent: number; cuotaCent: number };
   resultadoCent: number;
   avisos: string[];
 }
+
+/** Casillas informativas del 303 para operaciones sin IVA repercutido, según su causa. */
+const CASILLAS_SIN_IVA: Record<string, [string, string]> = {
+  E5: ["59", "Entregas intracomunitarias de bienes y prestaciones de servicios"],
+  E2: ["60", "Exportaciones y operaciones asimiladas"],
+  E3: ["60", "Exportaciones y operaciones asimiladas"],
+  E4: ["60", "Exportaciones y operaciones asimiladas"],
+  N2: ["120", "Operaciones no sujetas por reglas de localización"],
+  S2: ["122", "Operaciones sujetas con inversión del sujeto pasivo"],
+};
 
 /** Casillas del modelo 303 por tipo de IVA en el régimen general (base, tipo, cuota). */
 const CASILLAS_TIPO: Record<number, [string, string, string]> = {
@@ -36,9 +48,15 @@ export async function calcular303(tx: Tx, ejercicio: number, trimestre: Trimestr
   const devengado = await tx<{ tipo: string; base: string; cuota: string }[]>`
     SELECT d.tipo_iva AS tipo, sum(d.base_cent) AS base, sum(d.cuota_cent) AS cuota
     FROM facturas f JOIN desglose_iva d ON d.factura_id = f.id
-    WHERE NOT f.anulada AND f.tipo_factura NOT LIKE 'R%'
+    WHERE NOT f.anulada AND f.tipo_factura NOT LIKE 'R%' AND d.tipo_iva <> 0
       AND coalesce(f.fecha_operacion, f.fecha_expedicion) BETWEEN ${periodo.desde}::date AND ${periodo.hasta}::date
     GROUP BY d.tipo_iva ORDER BY d.tipo_iva`;
+  const sinIva = await tx<{ causa: string | null; base: string }[]>`
+    SELECT d.causa_iva AS causa, sum(d.base_cent) AS base
+    FROM facturas f JOIN desglose_iva d ON d.factura_id = f.id
+    WHERE NOT f.anulada AND d.tipo_iva = 0
+      AND coalesce(f.fecha_operacion, f.fecha_expedicion) BETWEEN ${periodo.desde}::date AND ${periodo.hasta}::date
+    GROUP BY d.causa_iva ORDER BY d.causa_iva`;
   const [rect] = await tx<{ base: string; cuota: string }[]>`
     SELECT coalesce(sum(f.base_cent), 0) AS base, coalesce(sum(f.cuota_iva_cent), 0) AS cuota
     FROM facturas f WHERE NOT f.anulada AND f.tipo_factura LIKE 'R%'
@@ -53,13 +71,15 @@ export async function calcular303(tx: Tx, ejercicio: number, trimestre: Trimestr
     if (tipo !== 0 && !CASILLAS_TIPO[tipo]) avisos.push(`Hay ventas al ${tipo} %, que no tienen casilla propia en el régimen general: revísalas.`);
     return { tipo, baseCent: Number(d.base), cuotaCent: Number(d.cuota), casillas: CASILLAS_TIPO[tipo] ?? null };
   });
-  if (lineas.some((l) => l.tipo === 0)) avisos.push("Las ventas al 0 % (exentas o no sujetas) no van en estas casillas: decláralas en la casilla que corresponda a su causa.");
+  if (sinIva.some((x) => !x.causa)) avisos.push("Hay ventas al 0 % emitidas sin indicar la causa: revísalas y decláralas en la casilla que corresponda.");
+  if (sinIva.some((x) => x.causa && !CASILLAS_SIN_IVA[x.causa])) avisos.push("Las ventas exentas por los arts. 20 y otros, o no sujetas por el art. 7, no tienen casilla en el 303: se informan en el resumen anual (390).");
   if (ded.sin_doc > 0) avisos.push(`${ded.sin_doc} gastos del trimestre no tienen justificante: sin factura no se puede deducir su IVA.`);
   const totalDevengado = lineas.filter((l) => l.tipo !== 0).reduce((s, l) => s + l.cuotaCent, 0) + Number(rect.cuota);
   const deducible = { baseCent: Number(ded.base), cuotaCent: Number(ded.cuota) };
   return {
     periodo, plazo: plazoTrimestral(ejercicio, trimestre), devengado: lineas,
     rectificaciones: { baseCent: Number(rect.base), cuotaCent: Number(rect.cuota) },
+    sinIva: sinIva.map((x) => ({ causa: x.causa ?? "", baseCent: Number(x.base) })),
     totalDevengadoCent: totalDevengado, deducible, resultadoCent: totalDevengado - deducible.cuotaCent, avisos,
   };
 }
@@ -81,6 +101,14 @@ export function casillas303(m: Modelo303): Casilla[] {
     { casilla: "29", concepto: "Cuotas soportadas deducibles en operaciones interiores corrientes", importeCent: m.deducible.cuotaCent },
     { casilla: "45", concepto: "Total a deducir", importeCent: m.deducible.cuotaCent },
     { casilla: "46", concepto: "Resultado del régimen general", importeCent: m.resultadoCent });
+  const info = new Map<string, Casilla>();
+  for (const x of m.sinIva) {
+    const c = CASILLAS_SIN_IVA[x.causa];
+    if (!c) continue;
+    const ya = info.get(c[0]);
+    info.set(c[0], { casilla: c[0], concepto: `${c[1]} (información adicional)`, importeCent: (ya?.importeCent ?? 0) + x.baseCent });
+  }
+  out.push(...[...info.values()].sort((a, b) => Number(a.casilla) - Number(b.casilla)));
   return out;
 }
 

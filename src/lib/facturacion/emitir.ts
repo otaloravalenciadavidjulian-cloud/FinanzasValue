@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Sql } from "@/db/cliente";
 import { enEmpresa } from "@/db/cliente";
+import { CODIGOS_CAUSA } from "@/lib/fiscal/exenciones";
 import { calcularTotales, TIPOS_IVA } from "@/lib/fiscal/totales";
 import { cadenaAlta, cadenaAnulacion, fechaHoraHusoMadrid, huella, type TipoFacturaAEAT } from "@/lib/verifactu/huella";
 
@@ -11,7 +12,8 @@ const linea = z.object({
   precioUnitarioCent: z.number().int(),
   descuentoPct: z.number().min(0).max(100).default(0),
   tipoIva: z.number().refine((n) => (TIPOS_IVA as readonly number[]).includes(n), "Tipo de IVA no admitido"),
-});
+  causaIva: z.enum(CODIGOS_CAUSA).optional(),
+}).refine((l) => (l.tipoIva === 0) === !!l.causaIva, "Las líneas al 0 % deben indicar si son exentas, no sujetas o con inversión del sujeto pasivo (y las demás no)");
 
 export const borradorFactura = z.object({
   serieCodigo: z.string().regex(/^[A-Z0-9]{1,10}$/),
@@ -123,11 +125,11 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
       RETURNING id`;
 
     for (const [i, l] of b.lineas.entries()) {
-      await tx`INSERT INTO lineas_factura (empresa_id, factura_id, orden, concepto, categoria, cantidad, precio_unitario_cent, descuento_pct, tipo_iva, base_cent)
-        VALUES (${ctx.empresaId}, ${factura.id}, ${i + 1}, ${l.concepto}, ${l.categoria ?? null}, ${l.cantidad}, ${l.precioUnitarioCent}, ${l.descuentoPct}, ${l.tipoIva}, ${t.lineas[i].baseCent})`;
+      await tx`INSERT INTO lineas_factura (empresa_id, factura_id, orden, concepto, categoria, cantidad, precio_unitario_cent, descuento_pct, tipo_iva, causa_iva, base_cent)
+        VALUES (${ctx.empresaId}, ${factura.id}, ${i + 1}, ${l.concepto}, ${l.categoria ?? null}, ${l.cantidad}, ${l.precioUnitarioCent}, ${l.descuentoPct}, ${l.tipoIva}, ${l.causaIva ?? null}, ${t.lineas[i].baseCent})`;
     }
     for (const d of t.desglose) {
-      await tx`INSERT INTO desglose_iva (empresa_id, factura_id, tipo_iva, base_cent, cuota_cent) VALUES (${ctx.empresaId}, ${factura.id}, ${d.tipoIva}, ${d.baseCent}, ${d.cuotaCent})`;
+      await tx`INSERT INTO desglose_iva (empresa_id, factura_id, tipo_iva, causa_iva, base_cent, cuota_cent) VALUES (${ctx.empresaId}, ${factura.id}, ${d.tipoIva}, ${d.causaIva ?? null}, ${d.baseCent}, ${d.cuotaCent})`;
     }
 
     const registro = await encadenar(tx, ctx.empresaId, (anterior) =>

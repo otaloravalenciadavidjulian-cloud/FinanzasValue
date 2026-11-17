@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import type { CausaIva } from "@/lib/fiscal/exenciones";
 import { db } from "@/db/cliente";
 import { requerirSesion, ROLES_FACTURACION } from "@/lib/auth/sesion";
 import { aCentimos } from "@/lib/fiscal/dinero";
@@ -15,13 +16,16 @@ export async function emitir(_prev: EstadoEmision, form: FormData): Promise<Esta
   let id: string;
   try {
     const conceptos = form.getAll("concepto").map(String);
-    const lineas = conceptos.map((concepto, i) => ({
+    const lineas = conceptos.map((concepto, i) => {
+      const [tipo, causa] = String(form.getAll("iva")[i]).split(":");
+      return {
       concepto,
       cantidad: Number(String(form.getAll("cantidad")[i]).replace(",", ".")),
       precioUnitarioCent: aCentimos(String(form.getAll("precio")[i] || "0")),
       descuentoPct: Number(form.getAll("descuento")[i] || 0),
-      tipoIva: Number(form.getAll("iva")[i]),
-    })).filter((l) => l.concepto.trim());
+      tipoIva: Number(tipo),
+      causaIva: (causa || undefined) as CausaIva | undefined,
+    }; }).filter((l) => l.concepto.trim());
     const r = await emitirFactura(db(), { empresaId: s.empresaId, usuarioId: s.usuarioId }, {
       serieCodigo: String(form.get("serie")),
       clienteId: String(form.get("cliente") || "") || undefined,

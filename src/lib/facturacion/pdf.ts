@@ -1,4 +1,5 @@
 import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
+import { causaIva } from "@/lib/fiscal/exenciones";
 import QRCode from "qrcode";
 import { formatearEuros } from "../fiscal/dinero";
 import { LEYENDA_VERIFACTU } from "../verifactu/qr";
@@ -22,8 +23,8 @@ export interface DatosFacturaPDF {
   fechaExpedicion: string;
   fechaOperacion?: string | null;
   vencimiento?: string | null;
-  lineas: { concepto: string; cantidad: number; precioUnitarioCent: number; descuentoPct: number; tipoIva: number; baseCent: number }[];
-  desglose: { tipoIva: number; baseCent: number; cuotaCent: number }[];
+  lineas: { concepto: string; cantidad: number; precioUnitarioCent: number; descuentoPct: number; tipoIva: number; causaIva?: string | null; baseCent: number }[];
+  desglose: { tipoIva: number; causaIva?: string | null; baseCent: number; cuotaCent: number }[];
   baseCent: number;
   cuotaIvaCent: number;
   retencionPct: number;
@@ -208,7 +209,7 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
     escribir(pagina, num(l.cantidad), col.cantidad, y, { derecha: true });
     escribir(pagina, formatearEuros(l.precioUnitarioCent), col.precio, y, { derecha: true });
     escribir(pagina, l.descuentoPct ? `${num(l.descuentoPct)} %` : "", col.dto, y, { derecha: true });
-    escribir(pagina, `${num(l.tipoIva)} %`, col.iva, y, { derecha: true });
+    escribir(pagina, l.causaIva ? l.causaIva : `${num(l.tipoIva)} %`, col.iva, y, { derecha: true });
     escribir(pagina, formatearEuros(l.baseCent), col.base, y, { derecha: true });
     y -= alto;
     pagina.drawLine({ start: { x: MARGEN, y: y + 10 }, end: { x: MARGEN + ancho, y: y + 10 }, color: LINEA, thickness: 0.5 });
@@ -225,6 +226,13 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
     y -= fuerte ? 16 : 13;
   };
   for (const g of d.desglose) {
+    if (g.causaIva) {
+      // Etiqueta corta: la mención completa va debajo de los totales.
+      const tipo = g.causaIva.startsWith("E") ? "exenta" : g.causaIva.startsWith("N") ? "no sujeta" : "inv. sujeto pasivo";
+      fila(`Base ${tipo} (${g.causaIva})`, formatearEuros(g.baseCent));
+      fila("Cuota de IVA", formatearEuros(0));
+      continue;
+    }
     fila(`Base imponible al ${num(g.tipoIva)} %`, formatearEuros(g.baseCent));
     fila(`Cuota de IVA (${num(g.tipoIva)} %)`, formatearEuros(g.cuotaCent));
   }
@@ -233,8 +241,10 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
   y -= 4;
   fila("TOTAL FACTURA", formatearEuros(d.totalCent), true);
 
-  // Cobro y observaciones
+  // Cobro y observaciones. La mención de la exención es obligatoria (art. 6.1.j RD 1619/2012).
+  const menciones = [...new Set(d.desglose.map((g) => causaIva(g.causaIva)?.mencion).filter(Boolean))] as string[];
   const notas = [
+    ...menciones,
     d.metodoCobro ? `Forma de pago: ${d.metodoCobro}` : null,
     e.iban ? `IBAN: ${e.iban}` : null,
     d.condicionesPago ? `Condiciones: ${d.condicionesPago}` : null,

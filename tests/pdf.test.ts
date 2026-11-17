@@ -34,6 +34,15 @@ describe("factura en PDF", () => {
     expect(doc.getPageCount()).toBeGreaterThan(1);
   });
 
+  it("incluye la mención de exención o inversión del sujeto pasivo", async () => {
+    const bytes = await generarFacturaPDF({ ...base,
+      lineas: [{ concepto: "Obra", cantidad: 1, precioUnitarioCent: 100000, descuentoPct: 0, tipoIva: 0, causaIva: "S2", baseCent: 100000 },
+        { concepto: "Venta UE", cantidad: 1, precioUnitarioCent: 5000, descuentoPct: 0, tipoIva: 0, causaIva: "E5", baseCent: 5000 }],
+      desglose: [{ tipoIva: 0, causaIva: "E5", baseCent: 5000, cuotaCent: 0 }, { tipoIva: 0, causaIva: "S2", baseCent: 100000, cuotaCent: 0 }],
+      baseCent: 105000, cuotaIvaCent: 0, retencionCent: 0, retencionPct: 0, totalCent: 105000 });
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
+  });
+
   it("admite rectificativas, simplificadas sin destinatario y anuladas", async () => {
     const bytes = await generarFacturaPDF({ ...base, tipoFactura: "R1", anulada: true, destinatario: null, rectifica: { numSerie: "A-2026-00001", fechaExpedicion: "2026-11-17", tipo: "I", motivo: "Error en el precio" } });
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
