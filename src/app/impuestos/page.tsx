@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db, enEmpresa } from "@/db/cliente";
-import { requerirSesion, type Rol } from "@/lib/auth/sesion";
+import { requerirSesion, ROLES_CONTABILIDAD } from "@/lib/auth/sesion";
 import { hoyMadrid } from "@/lib/cobros/estado";
 import { formatearEuros } from "@/lib/fiscal/dinero";
 import { calcular303, calcular347, calcularRetenciones, casillas303, UMBRAL_347, type Casilla } from "@/lib/impuestos/modelos";
@@ -8,7 +8,6 @@ import { plazo347, trimestreAPresentar, type Trimestre } from "@/lib/impuestos/p
 
 export const dynamic = "force-dynamic";
 
-const ROLES_IMPUESTOS: Rol[] = ["administrador", "direccion", "contable", "gestoria"];
 const fecha = (iso: string) => iso.split("-").reverse().join("/");
 
 function TablaCasillas({ casillas }: { casillas: Casilla[] }) {
@@ -25,7 +24,7 @@ function TablaCasillas({ casillas }: { casillas: Casilla[] }) {
 
 export default async function Impuestos({ searchParams }: { searchParams: Promise<{ ejercicio?: string; trimestre?: string }> }) {
   const q = await searchParams;
-  const s = await requerirSesion(ROLES_IMPUESTOS);
+  const s = await requerirSesion(ROLES_CONTABILIDAD);
   const hoy = hoyMadrid();
   const def = trimestreAPresentar(hoy);
   const ejercicio = /^\d{4}$/.test(q.ejercicio ?? "") ? Number(q.ejercicio) : def.ejercicio;

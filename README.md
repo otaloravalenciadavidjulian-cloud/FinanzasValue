@@ -67,6 +67,10 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   deducible y resultado), 111 (retenciones de profesionales), 115 (retenciones de alquileres) y 347
   (terceros de más de 3.005,06 €, por trimestres), con sus plazos. **Value no presenta declaraciones**:
   son cifras para revisar y presentar en la sede de la AEAT. La previsión de tesorería incluye su pago.
+- **Contabilidad** (`/contabilidad`): asientos del PGC generados desde facturas (430/705/477/473),
+  gastos (cuenta de la categoría, 472, 400/410, 4751; el IVA no deducible es más gasto), cobros, pagos
+  y movimientos del banco conciliados sin factura. Libro diario (exportable a CSV), mayor, sumas y
+  saldos y pérdidas y ganancias. Los asientos se derivan de los documentos, así que siempre cuadran.
 - **Dashboard** con facturación y gastos del mes, saldo en bancos, previsión, cobros y pagos vencidos,
   movimientos por conciliar y gastos sin justificante.
 
