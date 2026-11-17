@@ -38,6 +38,8 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   veces la misma factura de un proveedor y se avisa de posibles duplicados (mismo proveedor e importe en
   7 días). Sin justificante adjunto quedan marcados como pendientes de documentación. Nada se borra:
   van a una papelera con motivo y se pueden restaurar. El rol empleado solo ve sus propios gastos.
+  Se pueden corregir: cada edición queda en la auditoría con el valor anterior y el nuevo, y en la
+  ficha del gasto se ve su historial. El total no puede quedar por debajo de lo ya pagado.
 - **Justificantes** (PDF, JPG, PNG o WEBP, hasta 4 MB; las fotos grandes se reducen en el navegador):
   se guardan en la propia base con su huella SHA-256, que se comprueba en cada descarga
   (`/documentos/<id>`). Un mismo archivo no puede justificar dos gastos activos. No se borran: van a la
