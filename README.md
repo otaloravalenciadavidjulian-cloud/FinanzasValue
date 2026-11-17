@@ -78,6 +78,9 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
 - **Presupuestos** (`/presupuestos`): importe anual por mes para los ingresos y cada categoría de gasto,
   que se puede rellenar a partir de lo real de otro año con un ajuste en %. Se compara con lo real hasta
   el mes en curso y se marcan las desviaciones desfavorables. Cada cambio queda en la auditoría.
+- **Informes** (`/informes`): descargas en CSV para Excel del libro registro de facturas expedidas y
+  recibidas (una línea por factura y tipo de IVA), libro diario, rentabilidad y presupuesto frente a real,
+  por trimestre, año o fechas. Cada descarga queda en la auditoría.
 - **Dashboard** con facturación y gastos del mes, saldo en bancos, previsión, cobros y pagos vencidos,
   movimientos por conciliar y gastos sin justificante.
 
@@ -152,6 +155,7 @@ src/lib/tesoreria/      cuentas bancarias, IBAN e importación de extractos Norm
 src/lib/documentos/     justificantes (contenido y huella SHA-256) y su lectura por QR o IA
 src/lib/rentabilidad/   proyectos e informe de rentabilidad
 src/lib/presupuestos/   presupuesto anual y comparación con lo real
+src/lib/informes/       CSV para Excel y libros registro de IVA
 docs/aeat/xsd/          esquemas oficiales de la AEAT para validar el XML
 src/app/                pantallas (Next.js)
 tests/                  tests unitarios y de base de datos
