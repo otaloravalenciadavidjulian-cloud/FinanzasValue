@@ -51,6 +51,7 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
       <h1>Tesorería</h1>
       <div className="panel">
         <p style={{ margin: "0 0 10px" }}>Saldo en bancos: <b>{formatearEuros(total)}</b>
+          {" · "}<Link href="/tesoreria/prevision">Previsión</Link>
           {pendientes > 0 && <> · <Link href="/tesoreria/conciliar">{pendientes} {pendientes === 1 ? "movimiento" : "movimientos"} por conciliar</Link></>}</p>
         <table>
           <thead><tr><th>Cuenta</th><th>IBAN</th><th>Último extracto</th><th className="num">Movimientos</th><th className="num">Saldo</th></tr></thead>
