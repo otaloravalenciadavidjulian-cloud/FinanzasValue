@@ -2,7 +2,7 @@
 import { useActionState } from "react";
 import { emitir } from "./acciones";
 
-export function Formulario({ clientes, hoy }: { clientes: { id: string; razon_social: string }[]; hoy: string }) {
+export function Formulario({ clientes, proyectos, hoy }: { clientes: { id: string; razon_social: string }[]; proyectos: { id: string; nombre: string }[]; hoy: string }) {
   const [estado, accion, enviando] = useActionState(emitir, {});
   const v = (k: string, i = 0, def = "") => estado.valores?.[k]?.[i] ?? def;
   return (
@@ -13,6 +13,7 @@ export function Formulario({ clientes, hoy }: { clientes: { id: string; razon_so
         <label>Cliente<select name="cliente" required defaultValue={v("cliente")}><option value="" disabled>Selecciona…</option>{clientes.map((c) => <option key={c.id} value={c.id}>{c.razon_social}</option>)}</select></label>
         <label>Fecha de expedición<input type="date" name="fecha" defaultValue={v("fecha", 0, hoy)} max={hoy} required /></label>
         <label>Vencimiento<input type="date" name="vencimiento" defaultValue={v("vencimiento")} /></label>
+        {proyectos.length > 0 && <label>Proyecto<select name="proyecto" defaultValue={v("proyecto")}><option value="">— Ninguno —</option>{proyectos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></label>}
         <label>Retención IRPF<select name="retencion" defaultValue={v("retencion", 0, "0")}>{[0, 7, 15, 19].map((x) => <option key={x} value={x}>{x} %</option>)}</select></label>
       </div>
       <table>

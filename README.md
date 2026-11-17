@@ -71,6 +71,10 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   gastos (cuenta de la categoría, 472, 400/410, 4751; el IVA no deducible es más gasto), cobros, pagos
   y movimientos del banco conciliados sin factura. Libro diario (exportable a CSV), mayor, sumas y
   saldos y pérdidas y ganancias. Los asientos se derivan de los documentos, así que siempre cuadran.
+- **Rentabilidad** (`/rentabilidad`): ingresos, costes y margen del ejercicio por mes, cliente, proyecto
+  y categoría de gasto. Cifras sin IVA por fecha de factura; el IVA no deducible cuenta como coste.
+- **Proyectos** (`/proyectos`): se asignan facturas y gastos a un proyecto (opcionalmente de un cliente)
+  para ver su margen. Se cierran cuando terminan y dejan de ofrecerse en los formularios.
 - **Dashboard** con facturación y gastos del mes, saldo en bancos, previsión, cobros y pagos vencidos,
   movimientos por conciliar y gastos sin justificante.
 
@@ -143,6 +147,7 @@ src/lib/facturacion/    emisión y anulación en una transacción, PDF de la fac
 src/lib/gastos/         facturas recibidas y tickets, categorías con su cuenta del PGC
 src/lib/tesoreria/      cuentas bancarias, IBAN e importación de extractos Norma 43
 src/lib/documentos/     justificantes (contenido y huella SHA-256) y su lectura por QR o IA
+src/lib/rentabilidad/   proyectos e informe de rentabilidad
 docs/aeat/xsd/          esquemas oficiales de la AEAT para validar el XML
 src/app/                pantallas (Next.js)
 tests/                  tests unitarios y de base de datos
