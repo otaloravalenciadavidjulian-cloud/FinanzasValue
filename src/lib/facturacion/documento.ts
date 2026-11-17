@@ -1,4 +1,5 @@
 import type { Tx } from "@/db/cliente";
+import { contenidoLogotipo, empresaEn } from "@/lib/empresas/datos";
 import { urlQR, type EntornoAEAT } from "@/lib/verifactu/qr";
 import { importeTotalRegistro } from "./emitir";
 import type { DatosFacturaPDF } from "./pdf";
@@ -12,13 +13,13 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
   const [f] = await tx`
     SELECT f.*, to_char(f.fecha_expedicion,'YYYY-MM-DD') AS fecha, to_char(f.fecha_operacion,'YYYY-MM-DD') AS fecha_op,
            to_char(f.vencimiento,'YYYY-MM-DD') AS venc,
-           e.razon_social AS e_razon, e.nombre_comercial AS e_comercial, e.nif AS e_nif, e.domicilio AS e_domicilio,
-           e.codigo_postal AS e_cp, e.municipio AS e_municipio, e.provincia AS e_provincia, e.email AS e_email,
-           e.telefono AS e_telefono, e.datos_registrales AS e_registro, e.iban AS e_iban,
            o.num_serie AS o_num_serie, to_char(o.fecha_expedicion,'YYYY-MM-DD') AS o_fecha
-    FROM facturas f JOIN empresas e ON e.id = f.empresa_id LEFT JOIN facturas o ON o.id = f.rectifica_id
+    FROM facturas f LEFT JOIN facturas o ON o.id = f.rectifica_id
     WHERE f.id = ${id}`;
   if (!f) return null;
+  // Datos del emisor tal como estaban al emitir la factura.
+  const e = await empresaEn(tx, f.empresa_id, f.emitida_en);
+  const logo = e.logotipoId ? await contenidoLogotipo(tx, e.logotipoId) : null;
   const lineas = await tx`SELECT * FROM lineas_factura WHERE factura_id = ${id} ORDER BY orden`;
   const desglose = await tx`SELECT * FROM desglose_iva WHERE factura_id = ${id} ORDER BY tipo_iva DESC, causa_iva`;
   const dest = f.destinatario as Record<string, string | null> | null;
@@ -26,8 +27,9 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
   const cuotaIvaCent = Number(f.cuota_iva_cent);
   return {
     emisor: {
-      razonSocial: f.e_razon, nombreComercial: f.e_comercial, nif: f.e_nif, domicilio: f.e_domicilio, codigoPostal: f.e_cp,
-      municipio: f.e_municipio, provincia: f.e_provincia, email: f.e_email, telefono: f.e_telefono, datosRegistrales: f.e_registro, iban: f.e_iban,
+      razonSocial: e.razonSocial, nombreComercial: e.nombreComercial, nif: e.nif, domicilio: e.domicilio, codigoPostal: e.codigoPostal,
+      municipio: e.municipio, provincia: e.provincia, email: e.email, telefono: e.telefono, datosRegistrales: e.datosRegistrales, iban: e.iban,
+      logo,
     },
     destinatario: dest ? {
       razonSocial: dest.razon_social ?? "", nif: dest.nif ?? "", direccion: dest.direccion, codigoPostal: dest.codigo_postal,
@@ -53,7 +55,7 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
     condicionesPago: f.condiciones_pago,
     observaciones: f.observaciones,
     anulada: f.anulada,
-    urlQR: urlQR({ nifEmisor: f.e_nif, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent, cuotaIvaCent }), entorno }),
+    urlQR: urlQR({ nifEmisor: e.nif, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent, cuotaIvaCent }), entorno }),
     entornoPruebas: entorno === "pruebas",
   };
 }
