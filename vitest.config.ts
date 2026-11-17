@@ -3,5 +3,6 @@ import path from "node:path";
 
 export default defineConfig({
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
-  test: { include: ["tests/**/*.test.ts"] },
+  // Los tests de base de datos recrean el esquema: se ejecutan los ficheros de uno en uno.
+  test: { include: ["tests/**/*.test.ts"], fileParallelism: false },
 });

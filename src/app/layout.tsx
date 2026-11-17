@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: "Value Finanzas", description: "Gesti
 
 const menu = [
   ["/", "Dashboard"], ["/facturas", "Ingresos y facturación"], ["/facturas/nueva", "Nueva factura"], ["/clientes", "Clientes"],
+  ["/gastos", "Gastos"], ["/gastos/nuevo", "Nuevo gasto"], ["/proveedores", "Proveedores"],
 ] as const;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
