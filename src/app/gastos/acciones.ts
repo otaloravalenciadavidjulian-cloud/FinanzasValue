@@ -6,6 +6,8 @@ import { requerirSesion, ROLES_FACTURACION, ROLES_GASTOS, type Sesion } from "@/
 import { ErrorCobro, registrarPago } from "@/lib/cobros/registrar";
 import { aCentimos } from "@/lib/fiscal/dinero";
 import { ErrorGasto, moverGastoAPapelera, registrarGasto, restaurarGasto, type PosibleDuplicado } from "@/lib/gastos/registrar";
+import { ErrorDocumento } from "@/lib/documentos/almacen";
+import { altaTercero, ErrorTercero } from "@/lib/terceros/alta";
 import type { EstadoMovimiento } from "../facturas/[id]/acciones";
 
 export type EstadoGasto = { error?: string; valores?: Record<string, string>; posiblesDuplicados?: PosibleDuplicado[] };
@@ -25,8 +27,14 @@ export async function guardarGasto(_p: EstadoGasto, f: FormData): Promise<Estado
       cuotaCent: g(`cuota${i}`) ? aCentimos(g(`cuota${i}`)) : undefined,
       deduciblePct: num(g(`deducible${i}`) || "100"),
     }));
+    let proveedorId = g("proveedor") || undefined;
+    if (!proveedorId && g("altaProveedor") === "1" && g("nuevoNif") && s.rol !== "empleado") {
+      proveedorId = (await altaTercero(db(), s, "proveedor", { nif: g("nuevoNif"), razonSocial: g("nuevoNombre") || g("nuevoNif") })).id;
+      valores.proveedor = proveedorId;
+    }
     resultado = await registrarGasto(db(), s, {
-      proveedorId: g("proveedor") || undefined,
+      proveedorId,
+      documentoId: g("documentoId") || undefined,
       numero: g("numero") || undefined,
       tipoDocumento: (g("tipo") || "factura") as "factura",
       fechaExpedicion: g("fecha"),
@@ -41,7 +49,7 @@ export async function guardarGasto(_p: EstadoGasto, f: FormData): Promise<Estado
       confirmarPosibleDuplicado: g("confirmar") === "1",
     });
   } catch (e) {
-    if (e instanceof ErrorGasto) return { error: e.message, valores };
+    if (e instanceof ErrorGasto || e instanceof ErrorDocumento || e instanceof ErrorTercero) return { error: e.message, valores };
     if (e instanceof Error && e.name === "ZodError") {
       const issues = (e as unknown as { issues: { message: string }[] }).issues;
       return { error: issues.map((i) => i.message).join(". "), valores };

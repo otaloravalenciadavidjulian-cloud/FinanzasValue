@@ -38,6 +38,14 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   veces la misma factura de un proveedor y se avisa de posibles duplicados (mismo proveedor e importe en
   7 días). Sin justificante adjunto quedan marcados como pendientes de documentación. Nada se borra:
   van a una papelera con motivo y se pueden restaurar. El rol empleado solo ve sus propios gastos.
+- **Justificantes** (PDF, JPG, PNG o WEBP, hasta 4 MB; las fotos grandes se reducen en el navegador):
+  se guardan en la propia base con su huella SHA-256, que se comprueba en cada descarga
+  (`/documentos/<id>`). Un mismo archivo no puede justificar dos gastos activos. No se borran: van a la
+  papelera con motivo, y el gasto vuelve a quedar pendiente si se queda sin ninguno.
+- **Lectura de justificantes** al crear un gasto: se lee el QR tributario de la foto (gratis) y, si
+  hay `ANTHROPIC_API_KEY`, el documento con IA. Solo propone datos: el usuario los revisa y guarda.
+  Lo que no se lee con claridad queda vacío, el QR manda sobre lo impreso si no coinciden, se avisa
+  si las bases y cuotas no suman el total, y si el NIF no está dado de alta se ofrece crearlo.
 
 Importe total del registro: en VERI*FACTU es base más cuotas; la retención de IRPF no se descuenta
 (sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la
@@ -84,6 +92,8 @@ npm run dev
    - `VERIFACTU_ENTORNO`: `pruebas`.
    - Opcional: `SIF_PRODUCTOR_NIF` y `SIF_PRODUCTOR_NOMBRE`, quien desarrolla el software. Sin ellas,
      el registro indica que la propia empresa es la productora del sistema.
+   - Opcional: `ANTHROPIC_API_KEY`, para leer facturas y tickets de gasto con IA (Claude). Sin ella
+     solo se lee el QR tributario de las fotos y el resto de datos se escriben a mano.
 4. Despliega y abre `/configuracion-inicial` para crear la empresa y el administrador.
 
 ## Tests
@@ -103,6 +113,8 @@ db/migrations/          SQL: tablas, disparadores de inalterabilidad y política
 src/lib/fiscal/         importes en céntimos, totales e IVA, validación de NIF
 src/lib/verifactu/      huella encadenada, QR tributario y XML de los registros
 src/lib/facturacion/    emisión y anulación en una transacción, PDF de la factura
+src/lib/gastos/         facturas recibidas y tickets, categorías con su cuenta del PGC
+src/lib/documentos/     justificantes (contenido y huella SHA-256) y su lectura por QR o IA
 docs/aeat/xsd/          esquemas oficiales de la AEAT para validar el XML
 src/app/                pantallas (Next.js)
 tests/                  tests unitarios y de base de datos

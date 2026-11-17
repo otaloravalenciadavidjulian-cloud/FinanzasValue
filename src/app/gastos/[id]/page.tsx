@@ -7,6 +7,8 @@ import { nombreCategoria } from "@/lib/gastos/categorias";
 import { FormularioMovimiento } from "../../movimiento-form";
 import { aPapelera, pagar, restaurar } from "../acciones";
 import { BotonPapelera, BotonRestaurar } from "./papelera";
+import { adjuntar, justificanteAPapelera } from "../justificantes";
+import { BotonQuitarJustificante, FormularioAdjuntar } from "./justificantes";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +27,12 @@ export default async function Gasto({ params }: { params: Promise<{ id: string }
     if (s.rol === "empleado" && g.creado_por !== s.usuarioId) return null;
     const desglose = await tx`SELECT * FROM desglose_gasto WHERE gasto_id = ${id} ORDER BY tipo_iva DESC`;
     const pagos = await tx`SELECT id, to_char(fecha,'DD/MM/YYYY') AS fecha, importe_cent, metodo, notas FROM pagos WHERE gasto_id = ${id} ORDER BY fecha, creado_en`;
-    return { g, desglose, pagos };
+    const documentos = await tx`SELECT id, nombre, mime, tamano_bytes, sha256, to_char(creado_en AT TIME ZONE 'Europe/Madrid','DD/MM/YYYY HH24:MI') AS subido
+      FROM documentos WHERE entidad = 'gasto' AND entidad_id = ${id} AND borrado_en IS NULL ORDER BY creado_en`;
+    return { g, desglose, pagos, documentos };
   });
   if (!datos) notFound();
-  const { g, desglose, pagos } = datos;
+  const { g, desglose, pagos, documentos } = datos;
   const hoy = hoyMadrid();
   const totalCent = Number(g.total_cent);
   const pagadoCent = pagos.reduce((a, p) => a + Number(p.importe_cent), 0);
@@ -53,6 +57,25 @@ export default async function Gasto({ params }: { params: Promise<{ id: string }
           <b>Total: {formatearEuros(totalCent)}</b>
         </p>
         {g.notas && <p className="muted">{g.notas}</p>}
+      </div>
+      <div className="panel">
+        <b>Justificantes</b>
+        {documentos.length === 0 && <p className="muted">Ningún justificante adjunto.</p>}
+        {documentos.length > 0 && (
+          <table>
+            <thead><tr><th>Archivo</th><th>Subido</th><th className="num">Tamaño</th><th>Huella SHA-256</th><th></th></tr></thead>
+            <tbody>{documentos.map((d) => (
+              <tr key={d.id}>
+                <td><a href={`/documentos/${d.id}`} target="_blank" rel="noopener">{d.nombre}</a></td>
+                <td>{d.subido}</td>
+                <td className="num">{(Number(d.tamano_bytes) / 1024).toFixed(0)} KB</td>
+                <td className="mono" title={d.sha256}>{d.sha256.slice(0, 16)}…</td>
+                <td>{puedeGestionar && !g.borrado && <BotonQuitarJustificante accion={justificanteAPapelera.bind(null, id, d.id)} />}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+        {puedeGestionar && !g.borrado && <div style={{ marginTop: 10 }}><FormularioAdjuntar accion={adjuntar.bind(null, id)} /></div>}
       </div>
       <div className="panel">
         <b>Pagos</b>
