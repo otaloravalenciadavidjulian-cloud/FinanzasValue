@@ -22,9 +22,20 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   registro de accesos y roles (administrador, dirección, contable, gestoría, empleado).
 - **Configuración inicial** en `/configuracion-inicial`, protegida con `SETUP_TOKEN` y de un solo uso.
 - **Clientes**: alta con validación de NIF/CIF.
+- **Factura en PDF** (`/facturas/<id>/pdf`) con los datos del art. 6 del RD 1619/2012 y, al inicio,
+  el QR tributario con la leyenda VERI*FACTU. En el entorno de pruebas lleva un aviso de que no tiene
+  validez fiscal; las anuladas llevan una marca.
+- **XML de los registros VERI*FACTU** (`/facturas/<id>/xml`) según `SuministroLR.xsd` y
+  `SuministroInformacion.xsd` de la AEAT (copiados en `docs/aeat/xsd`). Se genera siempre a partir de
+  lo guardado, comprueba que la huella corresponde a los datos y los tests lo validan contra el XSD.
+  Incluye el sobre SOAP para el envío, que aún no se realiza.
 
-Pendiente dentro de la fase 1: doble factor, gestión de usuarios, generación del XML y envío SOAP a la
-AEAT con certificado, PDF con imagen corporativa y QR, y la declaración responsable del sistema.
+Importe total del registro: en VERI*FACTU es base más cuotas; la retención de IRPF no se descuenta
+(sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la
+causa de exención o no sujeción.
+
+Pendiente dentro de la fase 1: doble factor, gestión de usuarios, envío SOAP a la AEAT con el
+certificado de la empresa, logotipo en el PDF, causas de exención y la declaración responsable del sistema.
 
 ## Normativa: fechas a 17/11/2026
 
@@ -62,6 +73,8 @@ npm run dev
    - `APP_DB_PASSWORD`: 24 caracteres aleatorios o más. Crea el rol `value_app`, con el que trabaja la aplicación.
    - `SETUP_TOKEN`: 16 caracteres aleatorios o más, para la configuración inicial.
    - `VERIFACTU_ENTORNO`: `pruebas`.
+   - Opcional: `SIF_PRODUCTOR_NIF` y `SIF_PRODUCTOR_NOMBRE`, quien desarrolla el software. Sin ellas,
+     el registro indica que la propia empresa es la productora del sistema.
 4. Despliega y abre `/configuracion-inicial` para crear la empresa y el administrador.
 
 ## Tests
@@ -79,8 +92,9 @@ exclusiva para tests.
 ```
 db/migrations/          SQL: tablas, disparadores de inalterabilidad y políticas por empresa
 src/lib/fiscal/         importes en céntimos, totales e IVA, validación de NIF
-src/lib/verifactu/      huella encadenada y QR tributario
-src/lib/facturacion/    emisión y anulación de facturas en una transacción
+src/lib/verifactu/      huella encadenada, QR tributario y XML de los registros
+src/lib/facturacion/    emisión y anulación en una transacción, PDF de la factura
+docs/aeat/xsd/          esquemas oficiales de la AEAT para validar el XML
 src/app/                pantallas (Next.js)
 tests/                  tests unitarios y de base de datos
 ```

@@ -30,6 +30,8 @@ jobs:
         run: |
           psql -h localhost -U postgres -c "CREATE ROLE value LOGIN PASSWORD 'value' NOSUPERUSER NOBYPASSRLS"
           psql -h localhost -U postgres -c "CREATE DATABASE value_test OWNER value"
+      - name: xmllint para validar el XML contra el XSD de la AEAT
+        run: xmllint --version || (sudo apt-get update && sudo apt-get install -y libxml2-utils)
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
