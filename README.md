@@ -63,6 +63,10 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   menos pagos pendientes según su vencimiento (o los días de pago del tercero), con lo vencido aparte
   y los pagos recurrentes sin factura estimados con la media de los últimos 90 días conciliados.
   Avisa de la primera semana con saldo negativo.
+- **Impuestos** (`/impuestos`): borradores del 303 (IVA por tipo, rectificativas, IVA soportado
+  deducible y resultado), 111 (retenciones de profesionales), 115 (retenciones de alquileres) y 347
+  (terceros de más de 3.005,06 €, por trimestres), con sus plazos. **Value no presenta declaraciones**:
+  son cifras para revisar y presentar en la sede de la AEAT. La previsión de tesorería incluye su pago.
 - **Dashboard** con facturación y gastos del mes, saldo en bancos, previsión, cobros y pagos vencidos,
   movimientos por conciliar y gastos sin justificante.
 
