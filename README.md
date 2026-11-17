@@ -75,6 +75,9 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   y categoría de gasto. Cifras sin IVA por fecha de factura; el IVA no deducible cuenta como coste.
 - **Proyectos** (`/proyectos`): se asignan facturas y gastos a un proyecto (opcionalmente de un cliente)
   para ver su margen. Se cierran cuando terminan y dejan de ofrecerse en los formularios.
+- **Presupuestos** (`/presupuestos`): importe anual por mes para los ingresos y cada categoría de gasto,
+  que se puede rellenar a partir de lo real de otro año con un ajuste en %. Se compara con lo real hasta
+  el mes en curso y se marcan las desviaciones desfavorables. Cada cambio queda en la auditoría.
 - **Dashboard** con facturación y gastos del mes, saldo en bancos, previsión, cobros y pagos vencidos,
   movimientos por conciliar y gastos sin justificante.
 
@@ -148,6 +151,7 @@ src/lib/gastos/         facturas recibidas y tickets, categorías con su cuenta 
 src/lib/tesoreria/      cuentas bancarias, IBAN e importación de extractos Norma 43
 src/lib/documentos/     justificantes (contenido y huella SHA-256) y su lectura por QR o IA
 src/lib/rentabilidad/   proyectos e informe de rentabilidad
+src/lib/presupuestos/   presupuesto anual y comparación con lo real
 docs/aeat/xsd/          esquemas oficiales de la AEAT para validar el XML
 src/app/                pantallas (Next.js)
 tests/                  tests unitarios y de base de datos
