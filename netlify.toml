@@ -1,0 +1,7 @@
+# Despliegue en Netlify. Next.js se detecta solo (adaptador OpenNext de Netlify).
+[build]
+  command = "npm run db:migrate && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"

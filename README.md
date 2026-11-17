@@ -18,8 +18,13 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
 - **Aislamiento entre empresas** con Row Level Security: sin contexto de empresa no se ve ninguna fila.
 - **Auditoría** de cada emisión y anulación.
 
-Pendiente dentro de la fase 1: autenticación y roles, generación del XML y envío SOAP a la AEAT con
-certificado, PDF con imagen corporativa y QR, y la declaración responsable del sistema.
+- **Inicio de sesión** con contraseña (scrypt), sesiones de 12 horas, bloqueo tras 5 intentos fallidos,
+  registro de accesos y roles (administrador, dirección, contable, gestoría, empleado).
+- **Configuración inicial** en `/configuracion-inicial`, protegida con `SETUP_TOKEN` y de un solo uso.
+- **Clientes**: alta con validación de NIF/CIF.
+
+Pendiente dentro de la fase 1: doble factor, gestión de usuarios, generación del XML y envío SOAP a la
+AEAT con certificado, PDF con imagen corporativa y QR, y la declaración responsable del sistema.
 
 ## Normativa: fechas a 17/11/2026
 
@@ -47,6 +52,17 @@ npm run dev
 
 **Importante:** conecta la aplicación con un rol de PostgreSQL que no sea superusuario ni tenga
 `BYPASSRLS`. Esos roles se saltan el aislamiento entre empresas, y la aplicación se niega a usarlos.
+
+## Despliegue en Netlify + Neon
+
+1. En Neon, copia la cadena de conexión del proyecto (rol propietario, con `-pooler`).
+2. En Netlify, importa este repositorio de GitHub. `netlify.toml` ya define la compilación.
+3. En Netlify, en *Site configuration → Environment variables*, crea:
+   - `DATABASE_OWNER_URL`: la cadena de Neon. Solo se usa para aplicar las migraciones al compilar.
+   - `APP_DB_PASSWORD`: 24 caracteres aleatorios o más. Crea el rol `value_app`, con el que trabaja la aplicación.
+   - `SETUP_TOKEN`: 16 caracteres aleatorios o más, para la configuración inicial.
+   - `VERIFACTU_ENTORNO`: `pruebas`.
+4. Despliega y abre `/configuracion-inicial` para crear la empresa y el administrador.
 
 ## Tests
 

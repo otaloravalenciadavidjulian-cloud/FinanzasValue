@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db, enEmpresa } from "@/db/cliente";
-import { empresaActualId } from "@/lib/empresa-actual";
+import { requerirSesion } from "@/lib/auth/sesion";
 import { formatearEuros } from "@/lib/fiscal/dinero";
 import { LEYENDA_VERIFACTU, urlQR } from "@/lib/verifactu/qr";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function Factura({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const datos = await enEmpresa(db(), empresaActualId(), async (tx) => {
+  const datos = await enEmpresa(db(), (await requerirSesion()).empresaId, async (tx) => {
     const [f] = await tx`SELECT f.*, to_char(f.fecha_expedicion,'YYYY-MM-DD') AS fecha, e.nif AS nif_emisor, e.razon_social AS emisor
       FROM facturas f JOIN empresas e ON e.id = f.empresa_id WHERE f.id = ${id}`;
     if (!f) return null;

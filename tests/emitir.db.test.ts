@@ -64,6 +64,7 @@ d("emisión de facturas en PostgreSQL", () => {
     await expect(enEmpresa(sql, empA, (tx) => tx`DELETE FROM facturas WHERE id = ${f.id}`)).rejects.toThrow(/no se puede borrar/);
     await expect(enEmpresa(sql, empA, (tx) => tx`UPDATE registros_facturacion SET huella = huella`)).rejects.toThrow(/inalterable/);
     await expect(enEmpresa(sql, empA, (tx) => tx`DELETE FROM lineas_factura`)).rejects.toThrow(/inalterable/);
+    await expect(sql`TRUNCATE registros_facturacion CASCADE`).rejects.toThrow(/inalterable/);
   });
 
   it("no consume número si la emisión falla", async () => {
@@ -87,6 +88,12 @@ d("emisión de facturas en PostgreSQL", () => {
     expect(anul.huellaAnterior).toBe(r.huella);
     await expect(anularFactura(sql, ctx(), r.id, "otra vez")).rejects.toThrow(/ya está anulada/);
     await expect(enEmpresa(sql, empA, (tx) => tx`UPDATE facturas SET anulada = false WHERE id = ${r.id}`)).rejects.toThrow(/vigente/);
+  });
+
+  it("abre la serie del ejercicio siguiente con numeración desde 1", async () => {
+    const f = await emitirFactura(sql, { empresaId: empA, hoy: "2027-01-02", ahora: new Date("2027-01-02T09:00:00Z") },
+      { serieCodigo: "A", clienteId: cliA, fechaExpedicion: "2027-01-02", lineas: [linea] });
+    expect(f.numSerie).toBe("A-2027-00001");
   });
 
   it("se niega a trabajar con un superusuario", async () => {

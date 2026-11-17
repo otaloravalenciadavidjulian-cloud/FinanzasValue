@@ -5,11 +5,34 @@ export type Tx = postgres.TransactionSql;
 
 let cliente: Sql | undefined;
 
+/** Rol de base de datos con el que trabaja la aplicación (sin superusuario ni BYPASSRLS). */
+export const ROL_APP = "value_app";
+
+/**
+ * URL de conexión de la aplicación. Si no hay DATABASE_URL, se construye a partir de la URL del
+ * propietario (DATABASE_OWNER_URL) cambiando el usuario por value_app y su contraseña (APP_DB_PASSWORD).
+ */
+export function urlAplicacion(): string {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  const owner = process.env.DATABASE_OWNER_URL;
+  const pass = process.env.APP_DB_PASSWORD;
+  if (!owner || !pass) throw new Error("Configura DATABASE_URL, o bien DATABASE_OWNER_URL y APP_DB_PASSWORD");
+  const u = new URL(owner);
+  u.username = ROL_APP;
+  u.password = pass;
+  return u.toString();
+}
+
+export function opciones(url: string): postgres.Options<Record<string, never>> {
+  // Los poolers en modo transacción (como el de Neon) no admiten sentencias preparadas con nombre.
+  const pooler = new URL(url).hostname.includes("-pooler");
+  return { max: 5, onnotice: () => {}, prepare: !pooler };
+}
+
 export function db(): Sql {
   if (!cliente) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("Falta DATABASE_URL");
-    cliente = postgres(url, { max: 10, onnotice: () => {} });
+    const url = urlAplicacion();
+    cliente = postgres(url, opciones(url));
   }
   return cliente;
 }

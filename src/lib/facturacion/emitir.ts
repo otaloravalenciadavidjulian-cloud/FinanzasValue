@@ -62,6 +62,12 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
     if (!empresa) throw new ErrorFacturacion("Empresa no encontrada");
 
     const ejercicio = Number(b.fechaExpedicion.slice(0, 4));
+    // Al empezar un ejercicio nuevo, la serie se abre con la misma configuración y numeración desde 1.
+    await tx`INSERT INTO series (empresa_id, codigo, descripcion, tipo_factura, ejercicio)
+      SELECT empresa_id, codigo, descripcion, tipo_factura, ${ejercicio} FROM series
+      WHERE empresa_id = ${ctx.empresaId} AND codigo = ${b.serieCodigo} AND ejercicio < ${ejercicio}
+      ORDER BY ejercicio DESC LIMIT 1
+      ON CONFLICT (empresa_id, codigo, ejercicio) DO NOTHING`;
     const [serie] = await tx<{ id: string; tipo_factura: TipoFacturaAEAT; ultimo_numero: number }[]>`
       SELECT id, tipo_factura, ultimo_numero FROM series
       WHERE empresa_id = ${ctx.empresaId} AND codigo = ${b.serieCodigo} AND ejercicio = ${ejercicio}

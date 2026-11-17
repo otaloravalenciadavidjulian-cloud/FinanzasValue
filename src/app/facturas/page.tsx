@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { db, enEmpresa } from "@/db/cliente";
-import { empresaActualId } from "@/lib/empresa-actual";
+import { requerirSesion } from "@/lib/auth/sesion";
 import { formatearEuros } from "@/lib/fiscal/dinero";
 
 export const dynamic = "force-dynamic";
 
 export default async function Facturas() {
-  const filas = await enEmpresa(db(), empresaActualId(), (tx) => tx<{
+  const filas = await enEmpresa(db(), (await requerirSesion()).empresaId, (tx) => tx<{
     id: string; num_serie: string; fecha: string; cliente: string | null; base_cent: string; cuota_iva_cent: string; total_cent: string; anulada: boolean;
   }[]>`
     SELECT f.id, f.num_serie, to_char(f.fecha_expedicion, 'DD/MM/YYYY') AS fecha, f.destinatario->>'razon_social' AS cliente,
