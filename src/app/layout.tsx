@@ -35,10 +35,24 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main>{children}</main>
           </div>
         ) : (
-          <main style={{ minHeight: "100vh", placeItems: "center" }}>
-            <img className="logo-acceso" src="/marca/logo-negro.png" alt="vdn value" width={200} height={43} />
-            {children}
-          </main>
+          <div className="acceso">
+            <section className="acceso-marca" aria-label="vdn value">
+              <img className="acceso-logo" src="/marca/logo-blanco.png" alt="vdn value" width={260} height={56} />
+              <div className="acceso-lema">
+                <p className="acceso-titular">Las finanzas de tu empresa,<br />claras y al día.</p>
+                <ul>
+                  <li>Facturación conforme a la normativa española</li>
+                  <li>Tesorería, impuestos y contabilidad en un solo lugar</li>
+                  <li>Datos cifrados y aislados por empresa</li>
+                </ul>
+              </div>
+              <p className="acceso-pie">vdn value · Gestión financiera</p>
+            </section>
+            <main className="acceso-lado">
+              <img className="acceso-logo-movil" src="/marca/logo-negro.png" alt="vdn value" width={180} height={39} />
+              {children}
+            </main>
+          </div>
         )}
       </body>
     </html>
