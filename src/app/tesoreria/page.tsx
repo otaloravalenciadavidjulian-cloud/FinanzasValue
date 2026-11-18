@@ -12,7 +12,7 @@ import { FormularioCuenta, FormularioImportar } from "./formularios";
 export const dynamic = "force-dynamic";
 
 interface Cuenta {
-  id: string; nombre: string; iban: string; saldo: string; movimientos: number;
+  id: string; nombre: string; iban: string; saldo_extractos: string; pendiente: string; movimientos: number;
   ultimo_hasta: string | null; saldo_banco: string | null;
 }
 
@@ -20,10 +20,11 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
   const { cuenta: filtro } = await searchParams;
   const s = await requerirSesion(ROLES_FACTURACION);
   const cuentaFiltro = filtro && /^[0-9a-f-]{36}$/.test(filtro) ? filtro : null;
-  const { cuentas, movimientos, pendientes } = await enEmpresa(db(), s.empresaId, async (tx) => {
+  const { cuentas, movimientos, pendientes, apuntes } = await enEmpresa(db(), s.empresaId, async (tx) => {
     const cuentas = await tx<Cuenta[]>`
       SELECT c.id, c.nombre, c.iban,
-             c.saldo_inicial_cent + coalesce((SELECT sum(importe_cent) FROM movimientos_bancarios m WHERE m.cuenta_id = c.id), 0) AS saldo,
+             c.saldo_inicial_cent + coalesce((SELECT sum(importe_cent) FROM movimientos_bancarios m WHERE m.cuenta_id = c.id), 0) AS saldo_extractos,
+             coalesce((SELECT sum(importe_cent) FROM apuntes_pendientes a WHERE a.cuenta_id = c.id), 0) AS pendiente,
              (SELECT count(*)::int FROM movimientos_bancarios m WHERE m.cuenta_id = c.id) AS movimientos,
              u.hasta AS ultimo_hasta, u.saldo_final_cent AS saldo_banco
       FROM cuentas_bancarias c
@@ -44,7 +45,11 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
     const [{ pendientes }] = await tx<{ pendientes: number }[]>`
       SELECT count(*)::int AS pendientes FROM movimientos_bancarios m
       WHERE NOT EXISTS (SELECT 1 FROM conciliaciones k WHERE k.movimiento_id = m.id AND k.deshecha_en IS NULL)`;
-    return { cuentas, movimientos, pendientes };
+    const apuntes = await tx<{ id: string; fecha: string; cuenta: string; socio: string; tipo: string; importe_cent: string }[]>`
+      SELECT a.id, to_char(a.fecha,'DD/MM/YYYY') AS fecha, c.nombre AS cuenta, s.nombre AS socio, a.tipo, a.importe_cent
+      FROM apuntes_pendientes a JOIN cuentas_bancarias c ON c.id = a.cuenta_id JOIN socios s ON s.id = a.socio_id
+      WHERE (${cuentaFiltro}::uuid IS NULL OR a.cuenta_id = ${cuentaFiltro}::uuid) ORDER BY a.fecha DESC`;
+    return { cuentas: cuentas.map((c) => ({ ...c, saldo: Number(c.saldo_extractos) + Number(c.pendiente) })), movimientos, pendientes, apuntes };
   });
   const total = cuentas.reduce((a, c) => a + Number(c.saldo), 0);
   return (
@@ -58,7 +63,7 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
           <thead><tr><th>Cuenta</th><th>IBAN</th><th>Último extracto</th><th className="num">Movimientos</th><th className="num">Saldo</th></tr></thead>
           <tbody>
             {cuentas.map((c) => {
-              const descuadre = c.saldo_banco !== null && Number(c.saldo_banco) !== Number(c.saldo);
+              const descuadre = c.saldo_banco !== null && Number(c.saldo_banco) !== Number(c.saldo_extractos);
               return (
                 <tr key={c.id}>
                   <td><Link href={`/tesoreria?cuenta=${c.id}`}>{c.nombre}</Link></td>
@@ -66,6 +71,7 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
                   <td>{c.ultimo_hasta ?? "—"}</td>
                   <td className="num">{c.movimientos}</td>
                   <td className="num">{formatearEuros(Number(c.saldo))}
+                    {Number(c.pendiente) !== 0 && <div className="muted" style={{ fontSize: 11 }}>incluye {formatearEuros(Number(c.pendiente))} de socios aún sin extracto</div>}
                     {descuadre && <div className="error" style={{ padding: "2px 6px", fontSize: 11 }}>El banco indica {formatearEuros(Number(c.saldo_banco))}: falta algún extracto</div>}
                   </td>
                 </tr>
@@ -79,6 +85,16 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
         {cuentas.length > 0 && <FormularioImportar cuentas={cuentas.map(({ id, nombre }) => ({ id, nombre }))} />}
         <FormularioCuenta />
       </div>
+      {apuntes.length > 0 && <div className="panel">
+        <b>Apuntes de socios pendientes de extracto</b>
+        <p className="muted" style={{ margin: "4px 0 8px", fontSize: 13 }}>Ya cuentan en el saldo. Cuando importes el extracto, concilia el movimiento del banco con cada uno y dejarán de contarse aparte.</p>
+        <table>
+          <thead><tr><th>Fecha</th><th>Cuenta</th><th>Socio</th><th>Operación</th><th className="num">Importe</th></tr></thead>
+          <tbody>{apuntes.map((a) => <tr key={a.id}><td>{a.fecha}</td><td>{a.cuenta}</td><td><Link href="/socios">{a.socio}</Link></td>
+            <td>{({ capital: "Aportación de capital", aportacion: "Aportación", prestamo: "Préstamo del socio", devolucion: "Devolución de préstamo" } as Record<string, string>)[a.tipo]}</td>
+            <td className="num" style={{ color: Number(a.importe_cent) < 0 ? "var(--bad)" : undefined }}>{formatearEuros(Number(a.importe_cent))}</td></tr>)}</tbody>
+        </table>
+      </div>}
       <div className="panel">
         <b>Movimientos{cuentaFiltro ? ` de ${cuentas.find((c) => c.id === cuentaFiltro)?.nombre ?? "la cuenta"}` : ""}</b>
         {cuentaFiltro && <> · <Link href="/tesoreria">ver todas las cuentas</Link></>}

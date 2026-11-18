@@ -70,7 +70,8 @@ const RECURRENTES = ["nominas", "seguridad_social", "prestamo", "impuestos"];
 /** Carga los datos de la empresa de la sesión (dentro de enEmpresa) y calcula la previsión. */
 export async function cargarPrevision(tx: Tx, hoy: string, semanas = 13): Promise<Prevision> {
   const [{ saldo }] = await tx<{ saldo: string }[]>`
-    SELECT coalesce(sum(c.saldo_inicial_cent + coalesce((SELECT sum(importe_cent) FROM movimientos_bancarios m WHERE m.cuenta_id = c.id), 0)), 0) AS saldo
+    SELECT coalesce(sum(c.saldo_inicial_cent + coalesce((SELECT sum(importe_cent) FROM movimientos_bancarios m WHERE m.cuenta_id = c.id), 0)
+      + coalesce((SELECT sum(importe_cent) FROM apuntes_pendientes a WHERE a.cuenta_id = c.id), 0)), 0) AS saldo
     FROM cuentas_bancarias c WHERE c.activa`;
   // Sin vencimiento, se usan los días de pago del tercero (30 por defecto) desde la fecha de la factura.
   const cobros = await tx<{ fecha: string; pendiente: string }[]>`

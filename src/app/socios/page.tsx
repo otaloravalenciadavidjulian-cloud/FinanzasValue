@@ -3,6 +3,7 @@ import { db, enEmpresa } from "@/db/cliente";
 import { requerirSesion, ROLES_FACTURACION } from "@/lib/auth/sesion";
 import { hoyMadrid } from "@/lib/cobros/estado";
 import { formatearEuros } from "@/lib/fiscal/dinero";
+import { formatearIban } from "@/lib/tesoreria/iban";
 import { prestamosPendientes, resumenSocios, TIPOS_OPERACION, type TipoOperacion } from "@/lib/socios/socios";
 import { quitarOperacion } from "./acciones";
 import { BotonBorrar } from "./borrar";
@@ -13,13 +14,15 @@ const fechaES = (iso: string | null) => (iso ? iso.split("-").reverse().join("/"
 
 export default async function Socios() {
   const s = await requerirSesion(ROLES_FACTURACION);
-  const { socios, prestamos, operaciones } = await enEmpresa(db(), s.empresaId, async (tx) => ({
+  const { socios, prestamos, operaciones, cuentas, iban } = await enEmpresa(db(), s.empresaId, async (tx) => ({
+    cuentas: await tx<{ id: string; nombre: string }[]>`SELECT id, nombre FROM cuentas_bancarias WHERE activa ORDER BY creado_en`,
+    iban: (await tx<{ iban: string | null }[]>`SELECT iban FROM empresas WHERE id = ${s.empresaId}`)[0]?.iban ?? null,
     socios: await resumenSocios(tx),
     prestamos: await prestamosPendientes(tx),
-    operaciones: await tx<{ id: string; fecha: string; tipo: TipoOperacion; socio: string; importe_cent: string; plazo: string | null; vencimiento: string | null; interes_pct: string | null; concepto: string | null; conciliada: boolean }[]>`
-      SELECT o.id, to_char(o.fecha,'YYYY-MM-DD') AS fecha, o.tipo, s.nombre AS socio, o.importe_cent, o.plazo, to_char(o.vencimiento,'YYYY-MM-DD') AS vencimiento, o.interes_pct, o.concepto,
+    operaciones: await tx<{ id: string; fecha: string; tipo: TipoOperacion; socio: string; cuenta: string | null; importe_cent: string; plazo: string | null; vencimiento: string | null; interes_pct: string | null; concepto: string | null; conciliada: boolean }[]>`
+      SELECT o.id, to_char(o.fecha,'YYYY-MM-DD') AS fecha, o.tipo, s.nombre AS socio, cb.nombre AS cuenta, o.importe_cent, o.plazo, to_char(o.vencimiento,'YYYY-MM-DD') AS vencimiento, o.interes_pct, o.concepto,
              EXISTS (SELECT 1 FROM conciliaciones k WHERE k.operacion_socio_id = o.id AND k.deshecha_en IS NULL) AS conciliada
-      FROM operaciones_socios o JOIN socios s ON s.id = o.socio_id WHERE o.borrado_en IS NULL ORDER BY o.fecha DESC, o.creado_en DESC LIMIT 200`,
+      FROM operaciones_socios o JOIN socios s ON s.id = o.socio_id LEFT JOIN cuentas_bancarias cb ON cb.id = o.cuenta_id WHERE o.borrado_en IS NULL ORDER BY o.fecha DESC, o.creado_en DESC LIMIT 200`,
   }));
   const hoy = hoyMadrid();
   const total = (k: "capitalCent" | "aportacionesCent" | "prestamoPendienteCent") => socios.reduce((a, x) => a + x[k], 0);
@@ -28,7 +31,7 @@ export default async function Socios() {
       <h1>Socios y financiación</h1>
       <p className="muted">
         Dinero que entra en la empresa sin ser un ingreso: el capital que aportan los socios y los préstamos que hacen a la empresa.
-        No lleva IVA y no cuenta en la facturación ni en la rentabilidad, pero sí en la tesorería y en la contabilidad.
+        No lleva IVA y no cuenta en la facturación ni en la rentabilidad, pero sí en el saldo de la cuenta bancaria que elijas, en la tesorería y en la contabilidad.
         Si importas el extracto del banco, concilia el movimiento en <Link href="/tesoreria/conciliar">Conciliación</Link> con la operación registrada aquí.
       </p>
       <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", marginBottom: 16 }}>
@@ -36,7 +39,7 @@ export default async function Socios() {
         <div className="panel"><div className="muted">Otras aportaciones</div><b style={{ fontSize: 22 }}>{formatearEuros(total("aportacionesCent"))}</b></div>
         <div className="panel"><div className="muted">Préstamos de socios pendientes</div><b style={{ fontSize: 22 }}>{formatearEuros(total("prestamoPendienteCent"))}</b></div>
       </div>
-      <FormularioOperacion hoy={hoy} socios={socios.map((x) => ({ id: x.id, nombre: x.nombre }))}
+      <FormularioOperacion hoy={hoy} cuentas={cuentas} ibanEmpresa={iban ? formatearIban(iban) : null} socios={socios.map((x) => ({ id: x.id, nombre: x.nombre }))}
         prestamos={prestamos.filter((p) => p.pendienteCent > 0).map((p) => ({ id: p.id, socioId: p.socio_id,
           etiqueta: `Préstamo del ${fechaES(p.fecha)} · pendiente ${formatearEuros(p.pendienteCent)}${p.vencimiento ? ` · vence ${fechaES(p.vencimiento)}` : ""}` }))} />
       {socios.length === 0 && <p className="muted">Da de alta primero a los socios.</p>}
@@ -59,7 +62,7 @@ export default async function Socios() {
           <tbody>
             {operaciones.map((o) => <tr key={o.id}>
               <td>{fechaES(o.fecha)}</td><td>{o.socio}</td><td>{TIPOS_OPERACION[o.tipo]}</td>
-              <td className="muted">{[o.plazo ? `${o.plazo === "largo" ? "Largo" : "Corto"} plazo` : null, o.vencimiento ? `devolución ${fechaES(o.vencimiento)}` : null,
+              <td className="muted">{[o.cuenta, o.plazo ? `${o.plazo === "largo" ? "Largo" : "Corto"} plazo` : null, o.vencimiento ? `devolución ${fechaES(o.vencimiento)}` : null,
                 o.interes_pct !== null ? `${Number(o.interes_pct).toLocaleString("es-ES")} % anual` : null, o.concepto, o.conciliada ? "conciliada con el banco" : null].filter(Boolean).join(" · ") || "—"}</td>
               <td className="num" style={{ color: o.tipo === "devolucion" ? "var(--bad)" : undefined }}>{o.tipo === "devolucion" ? "−" : "+"}{formatearEuros(Number(o.importe_cent))}</td>
               <td>{!o.conciliada && <BotonBorrar accion={quitarOperacion.bind(null, o.id)} />}</td>

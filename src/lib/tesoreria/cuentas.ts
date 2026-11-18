@@ -17,6 +17,9 @@ export async function altaCuenta(sql: Sql, ctx: Contexto, d: { nombre: string; i
     const [c] = await tx<{ id: string }[]>`
       INSERT INTO cuentas_bancarias (empresa_id, nombre, iban, creado_por) VALUES (${ctx.empresaId}, ${d.nombre.trim()}, ${iban}, ${ctx.usuarioId ?? null})
       RETURNING id`;
+    // Las operaciones de socios registradas antes de tener cuenta pasan a la primera cuenta.
+    await tx`UPDATE operaciones_socios SET cuenta_id = ${c.id} WHERE cuenta_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM cuentas_bancarias WHERE id <> ${c.id})`;
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'alta_cuenta_bancaria', 'cuenta_bancaria', ${c.id}, ${tx.json({ iban })})`;
     return c;

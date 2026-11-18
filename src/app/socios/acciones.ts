@@ -46,6 +46,7 @@ export async function crearOperacion(_p: EstadoSocios, f: FormData): Promise<Est
       interesPct: tipo === "prestamo" ? numero(f.get("interes")) : undefined,
       prestamoId: tipo === "devolucion" ? opcional(f.get("prestamo")) : undefined,
       concepto: opcional(f.get("concepto")),
+      cuentaId: opcional(f.get("cuenta")),
     });
     return "Operación registrada. No cuenta como ingreso ni lleva IVA.";
   });

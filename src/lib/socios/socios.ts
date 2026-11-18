@@ -64,6 +64,8 @@ const operacion = z.object({
   interesPct: z.number().min(0, "El interés no puede ser negativo").max(100).optional(),
   prestamoId: z.string().uuid().optional(),
   concepto: z.string().trim().max(300).optional(),
+  /** Cuenta bancaria donde entra o de donde sale el dinero. Sin indicarla, la primera cuenta activa. */
+  cuentaId: z.string().uuid().optional(),
 });
 export type EntradaOperacion = z.input<typeof operacion>;
 
@@ -77,6 +79,26 @@ export async function prestamosPendientes(tx: Tx, socioId?: string) {
     ORDER BY p.fecha`).map((p) => ({ ...p, importeCent: Number(p.importe_cent), pendienteCent: Number(p.pendiente_cent) }));
 }
 
+/**
+ * Cuenta donde entra el dinero si no se elige otra: la primera cuenta activa. Si la empresa aún no tiene
+ * ninguna pero sí su IBAN en Empresa, se da de alta con él (las operaciones sin cuenta pasan a ella).
+ */
+async function cuentaPorDefecto(tx: Tx, ctx: Contexto): Promise<{ id: string }[]> {
+  const cuentas = await tx<{ id: string }[]>`SELECT id FROM cuentas_bancarias WHERE activa ORDER BY creado_en LIMIT 1`;
+  if (cuentas.length) return cuentas;
+  const [e] = await tx<{ iban: string | null; banco: string | null }[]>`SELECT iban, banco FROM empresas WHERE id = ${ctx.empresaId}`;
+  if (!e?.iban) return [];
+  const [ya] = await tx<{ id: string }[]>`SELECT id FROM cuentas_bancarias WHERE iban = ${e.iban}`;
+  if (ya) return [];
+  const [c] = await tx<{ id: string }[]>`
+    INSERT INTO cuentas_bancarias (empresa_id, nombre, iban, creado_por) VALUES (${ctx.empresaId}, ${e.banco ? `${e.banco} (principal)` : "Cuenta principal"}, ${e.iban}, ${ctx.usuarioId ?? null})
+    RETURNING id`;
+  await tx`UPDATE operaciones_socios SET cuenta_id = ${c.id} WHERE cuenta_id IS NULL`;
+  await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
+    VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'alta_cuenta_bancaria', 'cuenta_bancaria', ${c.id}, ${tx.json({ iban: e.iban, automatica: true })})`;
+  return [c];
+}
+
 export async function registrarOperacion(sql: Sql, ctx: Contexto, entrada: EntradaOperacion) {
   const o = operacion.parse(entrada);
   if (ctx.hoy && o.fecha > ctx.hoy) throw new ErrorSocio("La fecha no puede ser futura");
@@ -86,6 +108,11 @@ export async function registrarOperacion(sql: Sql, ctx: Contexto, entrada: Entra
   return enEmpresa(sql, ctx.empresaId, async (tx) => {
     const [s] = await tx`SELECT id FROM socios WHERE id = ${o.socioId} AND borrado_en IS NULL`;
     if (!s) throw new ErrorSocio("Socio no encontrado");
+    const [cuenta] = o.cuentaId
+      ? await tx<{ id: string }[]>`SELECT id FROM cuentas_bancarias WHERE id = ${o.cuentaId} AND activa`
+      : await cuentaPorDefecto(tx, ctx);
+    // Sin ninguna cuenta ni IBAN de la empresa, la operación queda sin cuenta y pasará a la primera que se dé de alta.
+    if (o.cuentaId && !cuenta) throw new ErrorSocio("Cuenta bancaria no encontrada");
     if (o.tipo === "devolucion") {
       const [p] = (await prestamosPendientes(tx, o.socioId)).filter((x) => x.id === o.prestamoId);
       if (!p) throw new ErrorSocio("Ese préstamo no es de este socio");
@@ -95,10 +122,10 @@ export async function registrarOperacion(sql: Sql, ctx: Contexto, entrada: Entra
       if (o.fecha < p.fecha) throw new ErrorSocio("La devolución no puede ser anterior al préstamo");
     }
     const [r] = await tx<{ id: string }[]>`
-      INSERT INTO operaciones_socios (empresa_id, socio_id, tipo, fecha, importe_cent, plazo, vencimiento, interes_pct, prestamo_id, concepto, creado_por)
+      INSERT INTO operaciones_socios (empresa_id, socio_id, tipo, fecha, importe_cent, plazo, vencimiento, interes_pct, prestamo_id, concepto, creado_por, cuenta_id)
       VALUES (${ctx.empresaId}, ${o.socioId}, ${o.tipo}, ${o.fecha}, ${o.importeCent}, ${o.tipo === "prestamo" ? o.plazo! : null},
         ${o.tipo === "prestamo" ? o.vencimiento ?? null : null}, ${o.tipo === "prestamo" ? o.interesPct ?? null : null},
-        ${o.tipo === "devolucion" ? o.prestamoId! : null}, ${o.concepto || null}, ${ctx.usuarioId ?? null}) RETURNING id`;
+        ${o.tipo === "devolucion" ? o.prestamoId! : null}, ${o.concepto || null}, ${ctx.usuarioId ?? null}, ${cuenta?.id ?? null}) RETURNING id`;
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'operacion_socio', 'operacion_socio', ${r.id}, ${tx.json({ ...o } as never)})`;
     return r;

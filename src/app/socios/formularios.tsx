@@ -24,7 +24,7 @@ export function FormularioSocio() {
 
 type Prestamo = { id: string; socioId: string; etiqueta: string };
 
-export function FormularioOperacion({ socios, prestamos, hoy }: { socios: { id: string; nombre: string }[]; prestamos: Prestamo[]; hoy: string }) {
+export function FormularioOperacion({ socios, prestamos, hoy, cuentas, ibanEmpresa }: { socios: { id: string; nombre: string }[]; prestamos: Prestamo[]; hoy: string; cuentas: { id: string; nombre: string }[]; ibanEmpresa?: string | null }) {
   const [e, accion, enviando] = useActionState(crearOperacion, {});
   const v = (k: string, d = "") => e.valores?.[k] ?? d;
   const [tipo, setTipo] = useState(v("tipo", "capital"));
@@ -46,6 +46,9 @@ export function FormularioOperacion({ socios, prestamos, hoy }: { socios: { id: 
           <option value="devolucion">Devolución de préstamo al socio</option>
         </select></label>
         <label>Fecha<input type="date" name="fecha" required max={hoy} defaultValue={v("fecha", hoy)} /></label>
+        <label>Cuenta bancaria{cuentas.length
+          ? <select name="cuenta" defaultValue={v("cuenta", cuentas[0].id)}>{cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select>
+          : <span className="muted" style={{ fontSize: 13, display: "block", paddingTop: 8 }}>{ibanEmpresa ? `Se dará de alta con el IBAN de la empresa (${ibanEmpresa})` : <>Sin cuentas: <a href="/tesoreria">añade una en Tesorería</a></>}</span>}</label>
         <label>Importe (€)<input name="importe" required inputMode="decimal" placeholder="0,00" defaultValue={v("importe")} /></label>
         {tipo === "prestamo" && <>
           <label>Plazo<select name="plazo" defaultValue={v("plazo", "largo")}>

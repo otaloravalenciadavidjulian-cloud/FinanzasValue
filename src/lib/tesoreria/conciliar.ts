@@ -84,8 +84,10 @@ export async function conciliarConPago(sql: Sql, ctx: Contexto, movId: string, p
 export async function conciliarConSocio(sql: Sql, ctx: Contexto, movId: string, operacionId: string) {
   return enEmpresa(sql, ctx.empresaId, async (tx) => {
     const m = await movimientoLibre(tx, movId);
-    const [o] = await tx<{ importe_cent: string; tipo: string }[]>`SELECT importe_cent, tipo FROM operaciones_socios WHERE id = ${operacionId} AND borrado_en IS NULL`;
+    const [o] = await tx<{ importe_cent: string; tipo: string; cuenta_id: string | null }[]>`SELECT importe_cent, tipo, cuenta_id FROM operaciones_socios WHERE id = ${operacionId} AND borrado_en IS NULL`;
     if (!o) throw new ErrorConciliacion("Operación del socio no encontrada");
+    const [{ cuenta_id }] = await tx<{ cuenta_id: string }[]>`SELECT cuenta_id FROM movimientos_bancarios WHERE id = ${movId}`;
+    if (o.cuenta_id && o.cuenta_id !== cuenta_id) throw new ErrorConciliacion("La operación del socio se registró en otra cuenta bancaria");
     const esperado = o.tipo === "devolucion" ? -Number(o.importe_cent) : Number(o.importe_cent);
     if (esperado !== m.importe) throw new ErrorConciliacion("El importe de la operación no coincide con el del banco");
     return guardar(tx, ctx, movId, { tipo: "socio", operacionSocioId: operacionId });
@@ -219,6 +221,7 @@ export async function sugerencias(tx: Tx, movId: string): Promise<Sugerencia[]> 
     FROM operaciones_socios o JOIN socios s ON s.id = o.socio_id
     WHERE o.borrado_en IS NULL AND o.importe_cent = ${abs} AND abs(o.fecha - ${m.fecha}::date) <= 15
       AND (o.tipo = 'devolucion') = ${importe < 0}
+      AND (o.cuenta_id IS NULL OR o.cuenta_id = (SELECT cuenta_id FROM movimientos_bancarios WHERE id = ${movId}))
       AND NOT EXISTS (SELECT 1 FROM conciliaciones k WHERE k.operacion_socio_id = o.id AND k.deshecha_en IS NULL)`;
   const nombres: Record<string, string> = { capital: "Aportación de capital", aportacion: "Aportación", prestamo: "Préstamo", devolucion: "Devolución de préstamo" };
   for (const o of socios) {

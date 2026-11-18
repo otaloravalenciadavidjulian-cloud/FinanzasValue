@@ -83,4 +83,36 @@ d("socios y financiación en PostgreSQL", () => {
     await conciliarConSocio(sql, ctx(), m.id, o.id);
     await expect(borrarOperacion(sql, ctx(), o.id)).rejects.toThrow(/conciliada/);
   });
+
+  it("la aportación suma al saldo de su cuenta al momento, y al conciliarla con el extracto no se cuenta dos veces", async () => {
+    const saldo = () => enEmpresa(sql, emp, async (tx) => (await cargarPrevision(tx, "2026-11-17")).saldoInicialCent);
+    const principal = (await altaCuenta(sql, ctx(), { nombre: "Principal", iban: "ES9121000418450200051332" })).id;
+    const o = await registrarOperacion(sql, ctx(), { socioId: ana, tipo: "capital", fecha: "2026-11-02", importeCent: 300000 });
+    const [{ cuenta_id }] = await enEmpresa(sql, emp, (tx) => tx`SELECT cuenta_id FROM operaciones_socios WHERE id = ${o.id}`);
+    expect(cuenta_id).toBe(principal);
+    expect(await saldo()).toBe(300000);
+    const p = await registrarOperacion(sql, ctx(), { socioId: ana, tipo: "prestamo", fecha: "2026-11-03", importeCent: 50000, plazo: "corto", cuentaId: principal });
+    await registrarOperacion(sql, ctx(), { socioId: ana, tipo: "devolucion", fecha: "2026-11-04", importeCent: 20000, prestamoId: p.id });
+    expect(await saldo()).toBe(330000);
+
+    const n43 = extractoN43({ desde: "2026-11-01", hasta: "2026-11-16", saldoInicialCent: 0, movimientos: [{ fecha: "2026-11-02", importeCent: 300000, texto: "APORTACION ANA" }] });
+    await importarExtracto(sql, ctx(), principal, { nombre: "e.n43", bytes: new TextEncoder().encode(n43) });
+    const [m] = await enEmpresa(sql, emp, (tx) => tx<{ id: string }[]>`SELECT id FROM movimientos_bancarios`);
+    await conciliarConSocio(sql, ctx(), m.id, o.id);
+    expect(await saldo()).toBe(330000);
+  });
+
+  it("sin cuentas, usa el IBAN de la empresa para crear la cuenta principal; o espera a la primera cuenta", async () => {
+    const o = await registrarOperacion(sql, ctx(), { socioId: ana, tipo: "capital", fecha: "2026-11-02", importeCent: 100000 });
+    const c = (await altaCuenta(sql, ctx(), { nombre: "Principal", iban: "ES9121000418450200051332" })).id;
+    expect((await enEmpresa(sql, emp, (tx) => tx`SELECT cuenta_id FROM operaciones_socios WHERE id = ${o.id}`))[0].cuenta_id).toBe(c);
+
+    const [{ id: otra }] = await sql`INSERT INTO empresas (razon_social, nif, domicilio, codigo_postal, municipio, provincia, iban, banco)
+      VALUES ('Otra', ${"B" + Math.floor(Math.random() * 1e8)}, 'C/ Mayor 1', '28013', 'Madrid', 'Madrid', 'ES3201824785250201820414', 'BBVA') RETURNING id`;
+    const s = (await altaSocio(sql, { empresaId: otra }, { nombre: "Socia" })).id;
+    await registrarOperacion(sql, { empresaId: otra, hoy: "2026-11-17" }, { socioId: s, tipo: "capital", fecha: "2026-11-02", importeCent: 300000 });
+    const cuentas = await enEmpresa(sql, otra, (tx) => tx`SELECT nombre, iban FROM cuentas_bancarias`);
+    expect(cuentas).toEqual([{ nombre: "BBVA (principal)", iban: "ES3201824785250201820414" }]);
+    expect(await enEmpresa(sql, otra, async (tx) => (await cargarPrevision(tx, "2026-11-17")).saldoInicialCent)).toBe(300000);
+  });
 });
