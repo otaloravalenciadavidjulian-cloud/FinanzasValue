@@ -34,13 +34,21 @@ export default async function Factura({ params }: { params: Promise<{ id: string
   const estado = estadoCobro({ totalCent, cobradoCent, vencimiento, hoy, anulada: f.anulada });
   const pendienteTexto = ((totalCent - cobradoCent) / 100).toFixed(2).replace(".", ",");
   const qr = urlQR({ nifEmisor: f.nif_emisor, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent: Number(f.base_cent), cuotaIvaCent: Number(f.cuota_iva_cent) }), entorno: entornoAEAT() });
+  const dst = f.destinatario as { direccion?: string; codigo_postal?: string; municipio?: string; provincia?: string; pais?: string } | null;
+  const facturaeLista = !!dst && !f.anulada && !!dst.direccion && !!dst.municipio && (dst.pais && dst.pais !== "ES" ? true : /^\d{5}$/.test(dst.codigo_postal ?? "") && !!dst.provincia);
   return (
     <>
       <h1>Factura {f.num_serie}{f.anulada ? " (anulada)" : ""}</h1>
       <p style={{ display: "flex", gap: 8 }}>
         <a className="btn" href={`/facturas/${f.id}/pdf`} target="_blank" rel="noopener">Ver PDF</a>
         <a className="btn btn-sec" href={`/facturas/${f.id}/xml`}>Descargar XML VERI*FACTU</a>
+        {facturaeLista && (
+          <a className="btn btn-sec" href={`/facturas/${f.id}/facturae`} title="Formato Facturae 3.2.2 sin firmar. Para FACe, fírmala con el certificado de la empresa (por ejemplo, con AutoFirma).">Descargar Facturae</a>
+        )}
       </p>
+      {f.destinatario && !f.anulada && !facturaeLista && (
+        <p className="muted" style={{ fontSize: 13 }}>No se puede generar la factura electrónica (Facturae) porque se emitió sin la dirección completa del cliente. Completa su ficha para las próximas facturas.</p>
+      )}
       <div className="panel">
         <p><b>{f.emisor}</b> · NIF {f.nif_emisor}<br />Cliente: {f.destinatario?.razon_social ?? "—"} · NIF {f.destinatario?.nif ?? "—"}</p>
         <table>

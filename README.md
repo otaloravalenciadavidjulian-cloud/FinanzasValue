@@ -29,6 +29,9 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   `SuministroInformacion.xsd` de la AEAT (copiados en `docs/aeat/xsd`). Se genera siempre a partir de
   lo guardado, comprueba que la huella corresponde a los datos y los tests lo validan contra el XSD.
   Incluye el sobre SOAP para el envío, que aún no se realiza.
+- **Factura electrónica Facturae 3.2.2** (`/facturas/<id>/facturae`), el formato de FACe y uno de los
+  admitidos para la factura electrónica entre empresas. Se valida con el XSD oficial (`docs/facturae/xsd`).
+  Sale sin firmar: para enviarla a FACe hay que firmarla con el certificado de la empresa (p. ej., AutoFirma).
 
 - **Cobros** parciales de cada factura con estado (pendiente, cobro parcial, vencida, cobrada) y lo
   pendiente de cobro. Los cobros no se borran: se corrigen con un cobro de signo contrario.
@@ -157,6 +160,7 @@ src/lib/rentabilidad/   proyectos e informe de rentabilidad
 src/lib/presupuestos/   presupuesto anual y comparación con lo real
 src/lib/informes/       CSV para Excel y libros registro de IVA
 docs/aeat/xsd/          esquemas oficiales de la AEAT para validar el XML
+docs/facturae/xsd/      esquema oficial Facturae 3.2.2
 src/app/                pantallas (Next.js)
 tests/                  tests unitarios y de base de datos
 ```
