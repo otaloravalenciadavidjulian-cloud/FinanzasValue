@@ -49,6 +49,12 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   Lo que no se lee con claridad queda vacío, el QR manda sobre lo impreso si no coinciden, se avisa
   si las bases y cuotas no suman el total, y si el NIF no está dado de alta se ofrece crearlo.
 
+- **Tesorería**: cuentas bancarias con IBAN validado e importación de extractos en Norma 43
+  (cuaderno 43 de la AEB, el que exportan todos los bancos españoles). Se comprueban los totales y el
+  saldo del propio fichero, el mismo fichero no se importa dos veces y los movimientos repetidos de
+  extractos solapados se ignoran. Los movimientos no se modifican ni se borran. Si el saldo calculado
+  no coincide con el del último extracto, se avisa de que falta alguno.
+
 Importe total del registro: en VERI*FACTU es base más cuotas; la retención de IRPF no se descuenta
 (sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la
 causa de exención o no sujeción.
@@ -116,6 +122,7 @@ src/lib/fiscal/         importes en céntimos, totales e IVA, validación de NIF
 src/lib/verifactu/      huella encadenada, QR tributario y XML de los registros
 src/lib/facturacion/    emisión y anulación en una transacción, PDF de la factura
 src/lib/gastos/         facturas recibidas y tickets, categorías con su cuenta del PGC
+src/lib/tesoreria/      cuentas bancarias, IBAN e importación de extractos Norma 43
 src/lib/documentos/     justificantes (contenido y huella SHA-256) y su lectura por QR o IA
 docs/aeat/xsd/          esquemas oficiales de la AEAT para validar el XML
 src/app/                pantallas (Next.js)
