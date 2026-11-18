@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { db, enEmpresa } from "@/db/cliente";
-import { requerirSesion } from "@/lib/auth/sesion";
+import { requerirSesion, ROLES_FACTURACION } from "@/lib/auth/sesion";
+import { ETIQUETA_COBRO, estadoCobro, hoyMadrid } from "@/lib/cobros/estado";
+import { FormularioMovimiento } from "../../movimiento-form";
+import { cobrar } from "./acciones";
 import { formatearEuros } from "@/lib/fiscal/dinero";
 import { entornoAEAT } from "@/lib/facturacion/documento";
 import { importeTotalRegistro } from "@/lib/facturacion/emitir";
@@ -11,17 +14,25 @@ export const dynamic = "force-dynamic";
 export default async function Factura({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const datos = await enEmpresa(db(), (await requerirSesion()).empresaId, async (tx) => {
-    const [f] = await tx`SELECT f.*, to_char(f.fecha_expedicion,'YYYY-MM-DD') AS fecha, e.nif AS nif_emisor, e.razon_social AS emisor
+  const sesion = await requerirSesion();
+  const datos = await enEmpresa(db(), sesion.empresaId, async (tx) => {
+    const [f] = await tx`SELECT f.*, to_char(f.fecha_expedicion,'YYYY-MM-DD') AS fecha, to_char(f.vencimiento,'YYYY-MM-DD') AS venc, e.nif AS nif_emisor, e.razon_social AS emisor
       FROM facturas f JOIN empresas e ON e.id = f.empresa_id WHERE f.id = ${id}`;
     if (!f) return null;
     const lineas = await tx`SELECT * FROM lineas_factura WHERE factura_id = ${id} ORDER BY orden`;
     const desglose = await tx`SELECT * FROM desglose_iva WHERE factura_id = ${id} ORDER BY tipo_iva DESC`;
     const registros = await tx`SELECT tipo, secuencia, huella, huella_anterior, fecha_hora_huso FROM registros_facturacion WHERE factura_id = ${id} ORDER BY secuencia`;
-    return { f, lineas, desglose, registros };
+    const cobros = await tx`SELECT id, to_char(fecha,'DD/MM/YYYY') AS fecha, importe_cent, metodo, notas FROM cobros WHERE factura_id = ${id} ORDER BY fecha, creado_en`;
+    return { f, lineas, desglose, registros, cobros };
   });
   if (!datos) notFound();
-  const { f, lineas, desglose, registros } = datos;
+  const { f, lineas, desglose, registros, cobros } = datos;
+  const hoy = hoyMadrid();
+  const totalCent = Number(f.total_cent);
+  const cobradoCent = cobros.reduce((a, c) => a + Number(c.importe_cent), 0);
+  const vencimiento: string | null = f.venc;
+  const estado = estadoCobro({ totalCent, cobradoCent, vencimiento, hoy, anulada: f.anulada });
+  const pendienteTexto = ((totalCent - cobradoCent) / 100).toFixed(2).replace(".", ",");
   const qr = urlQR({ nifEmisor: f.nif_emisor, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent: Number(f.base_cent), cuotaIvaCent: Number(f.cuota_iva_cent) }), entorno: entornoAEAT() });
   return (
     <>
@@ -42,6 +53,20 @@ export default async function Factura({ params }: { params: Promise<{ id: string
           <b>Total: {formatearEuros(Number(f.total_cent))}</b>
         </p>
         <p>QR tributario (VERI*FACTU) · {LEYENDA_VERIFACTU}<br /><span className="mono">{qr}</span></p>
+      </div>
+      <div className="panel">
+        <b>Cobros</b> <span className={`estado estado-${estado}`}>{ETIQUETA_COBRO[estado]}</span>
+        <p className="muted">Cobrado {formatearEuros(cobradoCent)} de {formatearEuros(totalCent)} · pendiente {formatearEuros(totalCent - cobradoCent)}{vencimiento ? ` · vence el ${vencimiento.split("-").reverse().join("/")}` : ""}</p>
+        {cobros.length > 0 && (
+          <table>
+            <thead><tr><th>Fecha</th><th>Método</th><th>Notas</th><th className="num">Importe</th></tr></thead>
+            <tbody>{cobros.map((c) => <tr key={c.id}><td>{c.fecha}</td><td>{c.metodo}</td><td>{c.notas ?? ""}</td><td className="num">{formatearEuros(Number(c.importe_cent))}</td></tr>)}</tbody>
+          </table>
+        )}
+        {!f.anulada && ROLES_FACTURACION.includes(sesion.rol) && (
+          <FormularioMovimiento accion={cobrar.bind(null, f.id)} pendiente={pendienteTexto} hoy={hoy} titulo="Registrar cobro" boton="Registrar cobro" />
+        )}
+        {cobros.length > 0 && <p className="muted" style={{ fontSize: 12 }}>Los cobros no se borran. Para corregir uno, registra otro con importe negativo.</p>}
       </div>
       <div className="panel">
         <b>Registro de facturación</b>

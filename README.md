@@ -30,6 +30,15 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   lo guardado, comprueba que la huella corresponde a los datos y los tests lo validan contra el XSD.
   Incluye el sobre SOAP para el envío, que aún no se realiza.
 
+- **Cobros** parciales de cada factura con estado (pendiente, cobro parcial, vencida, cobrada) y lo
+  pendiente de cobro. Los cobros no se borran: se corrigen con un cobro de signo contrario.
+- **Proveedores**: alta con validación de NIF. Un mismo tercero puede ser cliente y proveedor.
+- **Gastos** (facturas recibidas y tickets): categorías ligadas a cuentas del PGC, varias bases por
+  tipo de IVA, % de IVA deducible, retención, vencimiento y pagos parciales. Se rechaza registrar dos
+  veces la misma factura de un proveedor y se avisa de posibles duplicados (mismo proveedor e importe en
+  7 días). Sin justificante adjunto quedan marcados como pendientes de documentación. Nada se borra:
+  van a una papelera con motivo y se pueden restaurar. El rol empleado solo ve sus propios gastos.
+
 Importe total del registro: en VERI*FACTU es base más cuotas; la retención de IRPF no se descuenta
 (sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la
 causa de exención o no sujeción.
