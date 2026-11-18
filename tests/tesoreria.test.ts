@@ -56,3 +56,27 @@ describe("Norma 43", () => {
     expect(decodificar(latin1)).toBe("COMISIÓN");
   });
 });
+
+import { calcularPrevision } from "@/lib/tesoreria/prevision";
+
+describe("previsión de tesorería", () => {
+  const hoy = "2026-11-17";
+  it("reparte vencimientos por semanas y mete lo vencido en la primera", () => {
+    const p = calcularPrevision({
+      hoy, saldoInicialCent: 100000, recurrenteMensualCent: 0, semanas: 4,
+      cobros: [{ fecha: "2026-11-01", importeCent: 20000, vencido: true }, { fecha: "2026-11-25", importeCent: 50000, vencido: false }],
+      pagos: [{ fecha: "2026-11-20", importeCent: 30000, vencido: false }, { fecha: "2027-03-01", importeCent: 99999, vencido: false }],
+    });
+    expect(p.semanas.map((s) => [s.desde, s.cobrosCent, s.pagosCent, s.saldoFinalCent])).toEqual([
+      ["2026-11-17", 20000, 30000, 90000], ["2026-11-24", 50000, 0, 140000], ["2026-12-01", 0, 0, 140000], ["2026-12-08", 0, 0, 140000],
+    ]);
+    expect(p.cobrosVencidosCent).toBe(20000);
+    expect(p.primeraSemanaNegativa).toBeNull();
+  });
+  it("avisa de la primera semana en negativo, contando los recurrentes", () => {
+    const p = calcularPrevision({ hoy, saldoInicialCent: 10000, recurrenteMensualCent: 13000, cobros: [], pagos: [], semanas: 13 });
+    expect(p.semanas[0].recurrentesCent).toBe(3000);
+    expect(p.primeraSemanaNegativa?.desde).toBe("2026-12-08");
+    expect(p.saldoMinimoCent).toBe(10000 - 13 * 3000);
+  });
+});

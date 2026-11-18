@@ -59,6 +59,12 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   pendiente (y entonces se registra el cobro o pago y se concilia a la vez). Los movimientos sin
   factura se explican con una categoría (comisiones, impuestos, nóminas…). Una conciliación se deshace
   con motivo, nunca se borra.
+- **Previsión de tesorería** (`/tesoreria/prevision`) a 13 semanas: saldo en bancos más cobros y
+  menos pagos pendientes según su vencimiento (o los días de pago del tercero), con lo vencido aparte
+  y los pagos recurrentes sin factura estimados con la media de los últimos 90 días conciliados.
+  Avisa de la primera semana con saldo negativo.
+- **Dashboard** con facturación y gastos del mes, saldo en bancos, previsión, cobros y pagos vencidos,
+  movimientos por conciliar y gastos sin justificante.
 
 Importe total del registro: en VERI*FACTU es base más cuotas; la retención de IRPF no se descuenta
 (sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la

@@ -6,6 +6,7 @@ import { registrarCobro, registrarPago } from "@/lib/cobros/registrar";
 import { emitirFactura } from "@/lib/facturacion/emitir";
 import { registrarGasto } from "@/lib/gastos/registrar";
 import { altaCuenta, importarExtracto } from "@/lib/tesoreria/cuentas";
+import { cargarPrevision } from "@/lib/tesoreria/prevision";
 import { cobrarYConciliar, conciliarConCobro, conciliarConPago, conciliarOtro, deshacerConciliacion, pagarYConciliar, sugerencias } from "@/lib/tesoreria/conciliar";
 import { altaTercero } from "@/lib/terceros/alta";
 import { extractoN43, type MovPrueba } from "./n43";
@@ -106,5 +107,20 @@ d("conciliación bancaria en PostgreSQL", () => {
     expect(filas).toEqual([{ categoria: "otros", motivo_deshacer: "Era una comisión" }, { categoria: "comisiones", motivo_deshacer: null }]);
     await expect(enEmpresa(sql, emp, (tx) => tx`DELETE FROM conciliaciones`)).rejects.toThrow(/no se borran/);
     await expect(enEmpresa(sql, emp, (tx) => tx`UPDATE conciliaciones SET categoria = 'nominas'`)).rejects.toThrow(/no se modifica/);
+  });
+
+  it("la previsión parte del saldo en bancos y usa vencimientos y recurrentes conciliados", async () => {
+    await emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cli, fechaExpedicion: "2026-11-02", lineas: [linea] });
+    const g = await registrarGasto(sql, ctx(), { proveedorId: prov, numero: "L-90", fechaExpedicion: "2026-11-10", categoria: "suministros",
+      descripcion: "Luz", desglose: [{ baseCent: 10000, tipoIva: 21 }], vencimiento: "2026-11-30" });
+    if (!g.guardado) throw new Error();
+    const [nomina] = await importar([{ fecha: "2026-11-05", importeCent: -300000, comun: "15", texto: "NOMINAS" }]);
+    await conciliarOtro(sql, ctx(), nomina.id, "nominas");
+    const p = await enEmpresa(sql, emp, (tx) => cargarPrevision(tx, "2026-11-17", 4));
+    expect(p.saldoInicialCent).toBe(1000000 - 300000);
+    expect(p.recurrenteMensualCent).toBe(100000);
+    // La factura vence a los 30 días del cliente (2 de diciembre); el gasto, el 30 de noviembre.
+    expect(p.semanas.find((s) => s.cobrosCent > 0)?.desde).toBe("2026-12-01");
+    expect(p.semanas.find((s) => s.pagosCent > 0)).toMatchObject({ desde: "2026-11-24", pagosCent: 12100 });
   });
 });
