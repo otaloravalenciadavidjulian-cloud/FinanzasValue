@@ -37,3 +37,4 @@ label input,label select,label textarea{width:100%;box-sizing:border-box;min-wid
 .panel a:not(.btn),.aviso a{color:var(--accent)}
 .btn.secundario{background:transparent;color:var(--accent);border:1px solid var(--line)}
 .lineas-factura{table-layout:fixed}.lineas-factura input,.lineas-factura select{width:100%;min-width:0;box-sizing:border-box}
+.totales-factura{width:auto!important;min-width:300px;margin-left:auto;border-collapse:collapse}.totales-factura td{padding:4px 0}.totales-factura td:last-child{text-align:right;padding-left:24px;font-variant-numeric:tabular-nums}.totales-factura tr.total td{border-top:1px solid currentColor;padding-top:8px;font-weight:600;font-size:1.05em}
