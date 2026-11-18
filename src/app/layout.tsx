@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = { title: "vdn value · Finanzas", description: "Gestión financiera empresarial" };
 
 const menu = [
-  ["/", "Dashboard"], ["/facturas", "Ingresos y facturación"], ["/facturas/nueva", "Nueva factura"], ["/clientes", "Clientes"],
+  ["/", "Dashboard"], ["/facturas", "Ingresos y facturación"], ["/facturas/nueva", "Nueva factura"], ["/socios", "Socios y financiación"], ["/clientes", "Clientes"],
   ["/gastos", "Gastos"], ["/gastos/nuevo", "Nuevo gasto"], ["/proveedores", "Proveedores"], ["/tesoreria", "Tesorería"], ["/impuestos", "Impuestos"], ["/contabilidad", "Contabilidad"], ["/rentabilidad", "Rentabilidad"], ["/proyectos", "Proyectos"], ["/presupuestos", "Presupuestos"], ["/informes", "Informes"],
 ] as const;
 

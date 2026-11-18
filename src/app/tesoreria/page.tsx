@@ -31,13 +31,14 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
                          WHERE i.cuenta_id = c.id ORDER BY fecha_hasta DESC, creado_en DESC LIMIT 1) u ON true
       WHERE c.activa ORDER BY c.nombre`;
     const movimientos = await tx<{ id: string; fecha: string; cuenta: string; concepto_comun: string; descripcion: string; importe_cent: string;
-        tipo: string | null; categoria: string | null; factura_id: string | null; num_serie: string | null; gasto_id: string | null; numero_gasto: string | null }[]>`
+        tipo: string | null; categoria: string | null; factura_id: string | null; num_serie: string | null; gasto_id: string | null; numero_gasto: string | null; socio: string | null }[]>`
       SELECT m.id, to_char(m.fecha_operacion,'DD/MM/YYYY') AS fecha, c.nombre AS cuenta, m.concepto_comun, m.descripcion, m.importe_cent,
-             k.tipo, k.categoria, f.id AS factura_id, f.num_serie, g.id AS gasto_id, coalesce(g.numero, g.descripcion) AS numero_gasto
+             k.tipo, k.categoria, f.id AS factura_id, f.num_serie, g.id AS gasto_id, coalesce(g.numero, g.descripcion) AS numero_gasto, so.nombre AS socio
       FROM movimientos_bancarios m JOIN cuentas_bancarias c ON c.id = m.cuenta_id
       LEFT JOIN conciliaciones k ON k.movimiento_id = m.id AND k.deshecha_en IS NULL
       LEFT JOIN cobros co ON co.id = k.cobro_id LEFT JOIN facturas f ON f.id = co.factura_id
       LEFT JOIN pagos pa ON pa.id = k.pago_id LEFT JOIN gastos g ON g.id = pa.gasto_id
+      LEFT JOIN operaciones_socios os ON os.id = k.operacion_socio_id LEFT JOIN socios so ON so.id = os.socio_id
       WHERE (${cuentaFiltro}::uuid IS NULL OR m.cuenta_id = ${cuentaFiltro}::uuid)
       ORDER BY m.fecha_operacion DESC, m.creado_en DESC LIMIT 200`;
     const [{ pendientes }] = await tx<{ pendientes: number }[]>`
@@ -91,6 +92,7 @@ export default async function Tesoreria({ searchParams }: { searchParams: Promis
                 <td>{m.tipo ? <>
                   {m.factura_id ? <Link href={`/facturas/${m.factura_id}`}>Cobro {m.num_serie}</Link>
                     : m.gasto_id ? <Link href={`/gastos/${m.gasto_id}`}>Pago {m.numero_gasto}</Link>
+                    : m.socio ? <Link href="/socios">Socio: {m.socio}</Link>
                     : CATEGORIAS_OTRO[m.categoria as keyof typeof CATEGORIAS_OTRO] ?? m.categoria}
                   <FormularioDeshacer accion={deshacer.bind(null, m.id)} />
                 </> : <Link href="/tesoreria/conciliar" className="muted">Pendiente</Link>}</td></tr>

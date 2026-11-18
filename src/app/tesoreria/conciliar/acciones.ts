@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db/cliente";
 import { requerirSesion, ROLES_FACTURACION } from "@/lib/auth/sesion";
 import {
-  cobrarYConciliar, conciliarConCobro, conciliarConPago, conciliarOtro, deshacerConciliacion, ErrorConciliacion, pagarYConciliar, type Sugerencia,
+  cobrarYConciliar, conciliarConCobro, conciliarConPago, conciliarConSocio, conciliarOtro, deshacerConciliacion, ErrorConciliacion, pagarYConciliar, type Sugerencia,
 } from "@/lib/tesoreria/conciliar";
 
 type Estado = { error?: string };
@@ -19,6 +19,7 @@ async function ejecutar(f: () => Promise<unknown>): Promise<Estado> {
   revalidatePath("/tesoreria/conciliar");
   revalidatePath("/facturas");
   revalidatePath("/gastos");
+  revalidatePath("/socios");
   return {};
 }
 
@@ -30,6 +31,7 @@ export async function aplicarSugerencia(movId: string, tipo: Sugerencia["tipo"],
       case "pago": return conciliarConPago(db(), s, movId, id);
       case "factura": return cobrarYConciliar(db(), s, movId, id);
       case "gasto": return pagarYConciliar(db(), s, movId, id);
+      case "socio": return conciliarConSocio(db(), s, movId, id);
     }
   });
 }

@@ -17,7 +17,7 @@ export const CATEGORIAS_OTRO = {
   nominas: "Nóminas",
   prestamo: "Cuota de préstamo o leasing",
   traspaso: "Traspaso entre cuentas propias",
-  socios: "Aportaciones o retiradas de socios",
+  socios: "Otros movimientos con socios (sin registrar en Socios)",
   otros: "Otros",
 } as const;
 export type CategoriaOtro = keyof typeof CATEGORIAS_OTRO;
@@ -35,17 +35,17 @@ async function movimientoLibre(tx: Tx, id: string): Promise<Mov & { importe: num
   return { ...m, importe: Number(m.importe_cent) };
 }
 
-async function guardar(tx: Tx, ctx: Contexto, movId: string, d: { tipo: "cobro" | "pago" | "otro"; cobroId?: string; pagoId?: string; categoria?: string; nota?: string }) {
+async function guardar(tx: Tx, ctx: Contexto, movId: string, d: { tipo: "cobro" | "pago" | "otro" | "socio"; cobroId?: string; pagoId?: string; operacionSocioId?: string; categoria?: string; nota?: string }) {
   try {
     const [c] = await tx<{ id: string }[]>`
-      INSERT INTO conciliaciones (empresa_id, movimiento_id, tipo, cobro_id, pago_id, categoria, nota, creado_por)
-      VALUES (${ctx.empresaId}, ${movId}, ${d.tipo}, ${d.cobroId ?? null}, ${d.pagoId ?? null}, ${d.categoria ?? null}, ${d.nota?.trim() || null}, ${ctx.usuarioId ?? null})
+      INSERT INTO conciliaciones (empresa_id, movimiento_id, tipo, cobro_id, pago_id, operacion_socio_id, categoria, nota, creado_por)
+      VALUES (${ctx.empresaId}, ${movId}, ${d.tipo}, ${d.cobroId ?? null}, ${d.pagoId ?? null}, ${d.operacionSocioId ?? null}, ${d.categoria ?? null}, ${d.nota?.trim() || null}, ${ctx.usuarioId ?? null})
       RETURNING id`;
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'conciliar', 'movimiento_bancario', ${movId}, ${tx.json({ conciliacion: c.id, ...d } as never)})`;
     return c;
   } catch (e) {
-    if (e instanceof Error && /conciliacion_(cobro|pago)/.test(e.message)) throw new ErrorConciliacion("Ese cobro o pago ya está conciliado con otro movimiento");
+    if (e instanceof Error && /conciliacion_(cobro|pago|socio)/.test(e.message)) throw new ErrorConciliacion("Ese cobro, pago u operación ya está conciliado con otro movimiento");
     if (e instanceof Error && /conciliacion_movimiento/.test(e.message)) throw new ErrorConciliacion("Este movimiento ya está conciliado");
     throw e;
   }
@@ -77,6 +77,18 @@ export async function conciliarConPago(sql: Sql, ctx: Contexto, movId: string, p
     if (!p) throw new ErrorConciliacion("Pago no encontrado");
     if (Number(p.importe_cent) !== -m.importe) throw new ErrorConciliacion("El importe del pago no coincide con el del banco");
     return guardar(tx, ctx, movId, { tipo: "pago", pagoId });
+  });
+}
+
+/** Concilia un movimiento con una aportación, préstamo o devolución de un socio del mismo importe. */
+export async function conciliarConSocio(sql: Sql, ctx: Contexto, movId: string, operacionId: string) {
+  return enEmpresa(sql, ctx.empresaId, async (tx) => {
+    const m = await movimientoLibre(tx, movId);
+    const [o] = await tx<{ importe_cent: string; tipo: string }[]>`SELECT importe_cent, tipo FROM operaciones_socios WHERE id = ${operacionId} AND borrado_en IS NULL`;
+    if (!o) throw new ErrorConciliacion("Operación del socio no encontrada");
+    const esperado = o.tipo === "devolucion" ? -Number(o.importe_cent) : Number(o.importe_cent);
+    if (esperado !== m.importe) throw new ErrorConciliacion("El importe de la operación no coincide con el del banco");
+    return guardar(tx, ctx, movId, { tipo: "socio", operacionSocioId: operacionId });
   });
 }
 
@@ -125,7 +137,7 @@ export async function deshacerConciliacion(sql: Sql, ctx: Contexto, movId: strin
 }
 
 export interface Sugerencia {
-  tipo: "cobro" | "factura" | "pago" | "gasto";
+  tipo: "cobro" | "factura" | "pago" | "gasto" | "socio";
   id: string;
   etiqueta: string;
   importeCent: number;
@@ -201,6 +213,17 @@ export async function sugerencias(tx: Tx, movId: string): Promise<Sugerencia[]> 
         etiqueta: `Registrar pago${exacto ? "" : " parcial"} de ${g.numero ?? g.descripcion}${g.proveedor ? ` (${g.proveedor})` : ""}: pendiente ${euros(pendiente)}`,
         puntuacion: (exacto ? 50 : 10) + (numero ? 40 : 0) + (nombre ? 20 : 0) - (g.vencimiento ? Math.min(dias(g.vencimiento, m.fecha), 30) / 3 : 5) });
     }
+  }
+  const socios = await tx<{ id: string; fecha: string; tipo: string; socio: string }[]>`
+    SELECT o.id, to_char(o.fecha,'YYYY-MM-DD') AS fecha, o.tipo, s.nombre AS socio
+    FROM operaciones_socios o JOIN socios s ON s.id = o.socio_id
+    WHERE o.borrado_en IS NULL AND o.importe_cent = ${abs} AND abs(o.fecha - ${m.fecha}::date) <= 15
+      AND (o.tipo = 'devolucion') = ${importe < 0}
+      AND NOT EXISTS (SELECT 1 FROM conciliaciones k WHERE k.operacion_socio_id = o.id AND k.deshecha_en IS NULL)`;
+  const nombres: Record<string, string> = { capital: "Aportación de capital", aportacion: "Aportación", prestamo: "Préstamo", devolucion: "Devolución de préstamo" };
+  for (const o of socios) {
+    out.push({ tipo: "socio", id: o.id, importeCent: abs, etiqueta: `${nombres[o.tipo]} de ${o.socio} del ${o.fecha.split("-").reverse().join("/")}`,
+      puntuacion: 100 - dias(o.fecha, m.fecha) + (nombreEn(m.descripcion, o.socio) ? 20 : 0) });
   }
   return out.sort((a, b) => b.puntuacion - a.puntuacion).slice(0, 5);
 }

@@ -1,5 +1,6 @@
 import type { Tx } from "@/db/cliente";
 import { CATEGORIAS_GASTO } from "@/lib/gastos/categorias";
+import { cuentaOperacion, TIPOS_OPERACION, type TipoOperacion } from "@/lib/socios/socios";
 
 /**
  * Contabilidad según el Plan General de Contable (RD 1514/2007) generada a partir de los documentos:
@@ -8,7 +9,10 @@ import { CATEGORIAS_GASTO } from "@/lib/gastos/categorias";
  */
 
 export const CUENTAS: Record<string, string> = {
+  "100": "Capital social",
+  "118": "Aportaciones de socios o propietarios",
   "129": "Resultado del ejercicio",
+  "163": "Otras deudas a largo plazo con partes vinculadas",
   "400": "Proveedores",
   "410": "Acreedores por prestaciones de servicios",
   "430": "Clientes",
@@ -19,6 +23,7 @@ export const CUENTAS: Record<string, string> = {
   "4751": "H.P., acreedora por retenciones practicadas",
   "476": "Organismos de la Seguridad Social, acreedores",
   "477": "H.P., IVA repercutido",
+  "5133": "Otras deudas a corto plazo con otras partes vinculadas",
   "520": "Deudas a corto plazo con entidades de crédito",
   "551": "Cuenta corriente con socios y administradores",
   "555": "Partidas pendientes de aplicación",
@@ -45,7 +50,7 @@ export interface Apunte { cuenta: string; debeCent: number; haberCent: number; c
 export interface Asiento {
   fecha: string;
   /** Orden estable dentro del día: documento de origen. */
-  origen: { tipo: "factura" | "gasto" | "cobro" | "pago" | "banco"; id: string };
+  origen: { tipo: "factura" | "gasto" | "cobro" | "pago" | "banco" | "socio"; id: string };
   concepto: string;
   apuntes: Apunte[];
 }
@@ -128,7 +133,21 @@ export async function generarAsientos(tx: Tx, desde: string, hasta: string): Pro
     out.push(asiento(o.fecha, { tipo: "banco", id: o.id }, o.descripcion, [apunte("572", importe, 0, o.descripcion), apunte(contra, 0, importe, o.descripcion)]));
   }
 
-  const orden = { factura: 0, gasto: 1, cobro: 2, pago: 3, banco: 4 };
+  // Financiación de los socios: fondos propios o deuda, nunca ingresos.
+  const socios = await tx<{ id: string; fecha: string; tipo: TipoOperacion; plazo: "corto" | "largo" | null; prestamo_plazo: "corto" | "largo" | null; socio: string; importe: string }[]>`
+    SELECT o.id, to_char(o.fecha,'YYYY-MM-DD') AS fecha, o.tipo, o.plazo, p.plazo AS prestamo_plazo, s.nombre AS socio, o.importe_cent AS importe
+    FROM operaciones_socios o JOIN socios s ON s.id = o.socio_id LEFT JOIN operaciones_socios p ON p.id = o.prestamo_id
+    WHERE o.borrado_en IS NULL AND o.fecha BETWEEN ${desde}::date AND ${hasta}::date`;
+  for (const o of socios) {
+    const t = `${TIPOS_OPERACION[o.tipo]} · ${o.socio}`;
+    const cuenta = cuentaOperacion(o.tipo, o.plazo ?? o.prestamo_plazo);
+    const importe = Number(o.importe);
+    out.push(asiento(o.fecha, { tipo: "socio", id: o.id }, t, o.tipo === "devolucion"
+      ? [apunte(cuenta, importe, 0, t), apunte("572", 0, importe, t)]
+      : [apunte("572", importe, 0, t), apunte(cuenta, 0, importe, t)]));
+  }
+
+  const orden = { factura: 0, gasto: 1, cobro: 2, pago: 3, banco: 4, socio: 5 };
   return out.filter((a) => a.apuntes.length > 0)
     .sort((a, b) => a.fecha.localeCompare(b.fecha) || orden[a.origen.tipo] - orden[b.origen.tipo] || a.origen.id.localeCompare(b.origen.id));
 }

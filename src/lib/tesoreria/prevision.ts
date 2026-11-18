@@ -89,7 +89,15 @@ export async function cargarPrevision(tx: Tx, hoy: string, semanas = 13): Promis
   const aVenc = (filas: { fecha: string; pendiente: string }[]) => filas
     .map((f) => ({ fecha: f.fecha, importeCent: Number(f.pendiente), vencido: f.fecha < hoy }))
     .filter((v) => v.importeCent > 0);
-  return calcularPrevision({ hoy, saldoInicialCent: Number(saldo), cobros: aVenc(cobros), pagos: aVenc(pagos), recurrenteMensualCent: Math.round(Number(recurrente)), semanas,
+  // Préstamos de socios con vencimiento: lo pendiente se devuelve ese día.
+  const prestamos = await tx<{ fecha: string; pendiente: string; socio: string }[]>`
+    SELECT to_char(p.vencimiento,'YYYY-MM-DD') AS fecha, s.nombre AS socio,
+           p.importe_cent - coalesce((SELECT sum(d.importe_cent) FROM operaciones_socios d WHERE d.prestamo_id = p.id AND d.borrado_en IS NULL), 0) AS pendiente
+    FROM operaciones_socios p JOIN socios s ON s.id = p.socio_id
+    WHERE p.tipo = 'prestamo' AND p.borrado_en IS NULL AND p.vencimiento IS NOT NULL`;
+  const devoluciones = prestamos.map((p) => ({ fecha: p.fecha, importeCent: Number(p.pendiente), vencido: p.fecha < hoy, concepto: `Devolución del préstamo de ${p.socio}` }))
+    .filter((v) => v.importeCent > 0);
+  return calcularPrevision({ hoy, saldoInicialCent: Number(saldo), cobros: aVenc(cobros), pagos: [...aVenc(pagos), ...devoluciones], recurrenteMensualCent: Math.round(Number(recurrente)), semanas,
     impuestos: await impuestosPrevistos(tx, hoy, sumarDias(hoy, semanas * 7 - 1)) });
 }
 

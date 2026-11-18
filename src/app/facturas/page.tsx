@@ -22,7 +22,8 @@ export default async function Facturas() {
     <>
       <h1>Ingresos y facturación</h1>
       <p className="muted">Pendiente de cobro: <b>{formatearEuros(pendiente)}</b>{vencido ? <> · vencido: <b style={{ color: "var(--bad)" }}>{formatearEuros(vencido)}</b></> : null}</p>
-      <p><Link className="btn" href="/facturas/nueva">Nueva factura</Link></p>
+      <p style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Link className="btn" href="/facturas/nueva">Nueva factura</Link>
+        <Link className="btn btn-sec" href="/socios">Aportaciones y préstamos de socios</Link></p>
       <div className="panel">
         <table>
           <thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th className="num">Base</th><th className="num">IVA</th><th className="num">Total</th><th className="num">Pendiente</th><th>Estado</th></tr></thead>

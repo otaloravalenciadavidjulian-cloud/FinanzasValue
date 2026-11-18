@@ -39,7 +39,7 @@ export default async function Conciliar() {
           </div>
           {m.sugerencias.length > 0
             ? m.sugerencias.map((sg) => <BotonSugerencia key={sg.tipo + sg.id} accion={aplicarSugerencia.bind(null, m.id, sg.tipo, sg.id)} texto={sg.etiqueta} />)
-            : <span className="muted" style={{ fontSize: 13 }}>No hay ninguna factura, gasto, cobro ni pago que encaje.</span>}
+            : <span className="muted" style={{ fontSize: 13 }}>No hay ninguna factura, gasto, cobro, pago ni operación de socios que encaje.</span>}
           <FormularioOtro accion={marcarOtro.bind(null, m.id)} categorias={categorias} />
         </div>
       ))}
