@@ -14,15 +14,33 @@ export const ROL_APP = "value_app";
  * parámetro desconocido (el servidor rechaza la conexión).
  */
 export function limpiarUrl(bruta: string, nombre = "DATABASE_OWNER_URL"): string {
-  let t = bruta.trim().replace(/^psql\s+/i, "").replace(/^[A-Z_]+=/, "").trim();
-  t = t.replace(/^['"]|['"]$/g, "").trim();
-  let u: URL;
-  try {
-    u = new URL(t);
-  } catch {
-    throw new Error(`${nombre} no es una cadena de conexión válida: debe empezar por postgresql://`);
+  const t = bruta.trim();
+  // Busca la URL en cualquier parte del valor: admite `psql '...'`, `DATABASE_URL="..."`, comillas o texto alrededor.
+  const m = t.match(/postgres(?:ql)?:\/\/[^\s'"`]+/i);
+  let u: URL | undefined;
+  if (m) {
+    try {
+      u = new URL(m[0]);
+    } catch {
+      u = undefined;
+    }
+  } else {
+    // Formato «Parameters only» de Neon: PGHOST=..., PGDATABASE=..., PGUSER=..., PGPASSWORD=...
+    const p = (k: string) => t.match(new RegExp(`${k}\\s*=\\s*['"]?([^'"\\s]+)`))?.[1];
+    const host = p("PGHOST"), user = p("PGUSER"), pass = p("PGPASSWORD"), base = p("PGDATABASE");
+    if (host && user && pass && base) {
+      u = new URL(`postgresql://${host}/${encodeURIComponent(base)}`);
+      u.username = encodeURIComponent(user);
+      u.password = encodeURIComponent(pass);
+      u.searchParams.set("sslmode", p("PGSSLMODE") ?? "require");
+    }
   }
-  if (!/^postgres(ql)?:$/.test(u.protocol)) throw new Error(`${nombre} debe empezar por postgresql://`);
+  if (!u || !u.hostname) {
+    const pista = /^https?:/i.test(t) ? " (has pegado una dirección web, no la cadena de conexión)"
+      : t.length === 0 ? " (está vacía)" : "";
+    throw new Error(`${nombre} no contiene una cadena de conexión de PostgreSQL${pista}. ` +
+      "En Neon pulsa Connect y copia la que empieza por postgresql://");
+  }
   u.searchParams.delete("channel_binding");
   return u.toString();
 }
