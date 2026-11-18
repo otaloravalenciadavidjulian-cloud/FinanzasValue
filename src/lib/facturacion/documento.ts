@@ -29,11 +29,12 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
     emisor: {
       razonSocial: e.razonSocial, nombreComercial: e.nombreComercial, nif: e.nif, domicilio: e.domicilio, codigoPostal: e.codigoPostal,
       municipio: e.municipio, provincia: e.provincia, email: e.email, telefono: e.telefono, datosRegistrales: e.datosRegistrales, iban: e.iban, banco: e.banco, textoPie: e.textoPie,
+      web: e.web, bic: e.bic, titularCuenta: e.titularCuenta, agradecimiento: e.agradecimiento,
       logo,
     },
     destinatario: dest ? {
       razonSocial: dest.razon_social ?? "", nif: dest.nif ?? "", direccion: dest.direccion, codigoPostal: dest.codigo_postal,
-      municipio: dest.municipio, provincia: dest.provincia, pais: dest.pais,
+      municipio: dest.municipio, provincia: dest.provincia, pais: dest.pais, email: dest.email,
     } : null,
     numSerie: f.num_serie,
     tipoFactura: f.tipo_factura,
@@ -54,6 +55,7 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
     metodoCobro: f.metodo_cobro,
     condicionesPago: f.condiciones_pago,
     observaciones: f.observaciones,
+    referencia: f.referencia,
     anulada: f.anulada,
     urlQR: urlQR({ nifEmisor: e.nif, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent, cuotaIvaCent }), entorno }),
     entornoPruebas: entorno === "pruebas",

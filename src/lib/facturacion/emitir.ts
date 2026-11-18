@@ -26,6 +26,7 @@ export const borradorFactura = z.object({
   metodoCobro: z.string().optional(),
   condicionesPago: z.string().optional(),
   observaciones: z.string().optional(),
+  referencia: z.string().trim().max(100).optional(),
   rectificaId: z.string().uuid().optional(),
   tipoRectificacion: z.enum(["S", "I"]).optional(),
   motivoRectificacion: z.string().trim().min(1).optional(),
@@ -97,7 +98,7 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
 
     let destinatario: unknown = null;
     if (b.clienteId) {
-      const [c] = await tx`SELECT razon_social, nif, direccion, codigo_postal, municipio, provincia, pais FROM terceros WHERE id = ${b.clienteId} AND es_cliente`;
+      const [c] = await tx`SELECT razon_social, nif, direccion, codigo_postal, municipio, provincia, pais, email FROM terceros WHERE id = ${b.clienteId} AND es_cliente`;
       if (!c) throw new ErrorFacturacion("Cliente no encontrado");
       destinatario = c;
     } else if (serie.tipo_factura !== "F2" && serie.tipo_factura !== "R5") {
@@ -116,11 +117,11 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
     const [factura] = await tx<{ id: string }[]>`
       INSERT INTO facturas (empresa_id, serie_id, numero, num_serie, tipo_factura, fecha_expedicion, fecha_operacion,
         cliente_id, destinatario, proyecto_id, base_cent, cuota_iva_cent, retencion_pct, retencion_cent, total_cent,
-        vencimiento, metodo_cobro, condiciones_pago, observaciones, rectifica_id, tipo_rectificacion, motivo_rectificacion, emitida_por)
+        vencimiento, metodo_cobro, condiciones_pago, observaciones, referencia, rectifica_id, tipo_rectificacion, motivo_rectificacion, emitida_por)
       VALUES (${ctx.empresaId}, ${serie.id}, ${numero}, ${numSerie}, ${serie.tipo_factura}, ${b.fechaExpedicion}, ${b.fechaOperacion ?? null},
         ${b.clienteId ?? null}, ${destinatario ? tx.json(destinatario as never) : null}, ${b.proyectoId ?? null},
         ${t.baseCent}, ${t.cuotaIvaCent}, ${b.retencionPct}, ${t.retencionCent}, ${t.totalCent},
-        ${b.vencimiento ?? null}, ${b.metodoCobro ?? null}, ${b.condicionesPago ?? null}, ${b.observaciones ?? null},
+        ${b.vencimiento ?? null}, ${b.metodoCobro ?? null}, ${b.condicionesPago ?? null}, ${b.observaciones ?? null}, ${b.referencia || null},
         ${b.rectificaId ?? null}, ${b.rectificaId ? (b.tipoRectificacion ?? "I") : null}, ${b.motivoRectificacion ?? null}, ${ctx.usuarioId ?? null})
       RETURNING id`;
 

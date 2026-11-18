@@ -33,6 +33,10 @@ export async function emitir(_prev: EstadoEmision, form: FormData): Promise<Esta
       fechaExpedicion: String(form.get("fecha")),
       vencimiento: String(form.get("vencimiento") || "") || undefined,
       retencionPct: Number(form.get("retencion") || 0),
+      referencia: String(form.get("referencia") ?? "").trim() || undefined,
+      metodoCobro: String(form.get("metodoCobro") ?? "").trim().slice(0, 100) || undefined,
+      condicionesPago: String(form.get("condicionesPago") ?? "").trim().slice(0, 500) || undefined,
+      observaciones: String(form.get("observaciones") ?? "").trim().slice(0, 1000) || undefined,
       lineas,
     });
     id = r.id;

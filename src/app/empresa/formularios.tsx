@@ -28,15 +28,19 @@ export function FormularioEmpresa({ d, editable }: { d: Datos; editable: boolean
       <div className="grid">
         {campo("email", "Email", { type: "email" })}
         {campo("telefono", "Teléfono")}
+        {campo("web", "Página web", { placeholder: "www.ejemplo.com" })}
       </div>
       <div className="grid">
         {campo("iban", "Cuenta para cobros (IBAN)")}
         {campo("banco", "Banco (opcional)")}
+        {campo("bic", "BIC/SWIFT (opcional)")}
+        {campo("titularCuenta", "Titular de la cuenta (si no es la empresa)")}
       </div>
       <label>Texto al pie de las facturas (opcional, hasta 600 caracteres)
         <textarea name="textoPie" rows={3} maxLength={600} defaultValue={d.textoPie ?? ""} disabled={!editable}
           placeholder="Por ejemplo, las marcas o webs de la empresa" />
       </label>
+      {campo("agradecimiento", "Mensaje de agradecimiento (opcional)", { maxLength: 300, placeholder: "Por ejemplo: Gracias por su confianza." })}
       {campo("datosRegistrales", "Datos del Registro Mercantil (pie de las facturas)")}
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>La razón social y el NIF identifican a la empresa ante la AEAT en VERI*FACTU y no se cambian desde aquí.</p>
       {editable && <div><button className="btn" disabled={enviando}>{enviando ? "Guardando…" : "Guardar"}</button></div>}
