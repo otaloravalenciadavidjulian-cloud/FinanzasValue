@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { formatearEuros } from "../fiscal/dinero";
 import { LEYENDA_VERIFACTU } from "../verifactu/qr";
 import { LOGO_VALUE_PNG } from "../marca/logo";
+import { formatearIban } from "../tesoreria/iban";
 
 /**
  * Factura en PDF con los datos que exige el art. 6 del RD 1619/2012 y, al inicio,
@@ -13,7 +14,7 @@ import { LOGO_VALUE_PNG } from "../marca/logo";
 export interface DatosFacturaPDF {
   emisor: {
     razonSocial: string; nombreComercial?: string | null; nif: string; domicilio: string; codigoPostal: string;
-    municipio: string; provincia: string; email?: string | null; telefono?: string | null; datosRegistrales?: string | null; iban?: string | null;
+    municipio: string; provincia: string; email?: string | null; telefono?: string | null; datosRegistrales?: string | null; iban?: string | null; banco?: string | null;
     /** PNG o JPG. */
     logo?: { bytes: Uint8Array; mime: string } | null;
   };
@@ -259,7 +260,7 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
   const notas = [
     ...menciones,
     d.metodoCobro ? `Forma de pago: ${d.metodoCobro}` : null,
-    e.iban ? `IBAN: ${e.iban}` : null,
+    e.iban ? `Realizar el pago a la cuenta ${formatearIban(e.iban)}${e.banco ? ` (${e.banco})` : ""}` : null,
     d.condicionesPago ? `Condiciones: ${d.condicionesPago}` : null,
     d.observaciones ? `Observaciones: ${d.observaciones}` : null,
   ].filter(Boolean) as string[];

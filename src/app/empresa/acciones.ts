@@ -24,7 +24,7 @@ export async function guardarDatos(_p: Estado, f: FormData): Promise<Estado> {
   return intentar(async () => {
     const n = await editarEmpresa(db(), s, {
       nombreComercial: g("nombreComercial"), domicilio: g("domicilio"), codigoPostal: g("codigoPostal"), municipio: g("municipio"),
-      provincia: g("provincia"), email: g("email"), telefono: g("telefono"), iban: g("iban"), datosRegistrales: g("datosRegistrales"),
+      provincia: g("provincia"), email: g("email"), telefono: g("telefono"), iban: g("iban"), banco: g("banco"), datosRegistrales: g("datosRegistrales"),
     });
     return n ? "Datos guardados. Las facturas ya emitidas conservan los datos con los que se emitieron." : "No había cambios.";
   });

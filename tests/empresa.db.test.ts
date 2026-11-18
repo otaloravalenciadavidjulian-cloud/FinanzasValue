@@ -18,7 +18,7 @@ d("datos de la empresa en PostgreSQL", () => {
   const sql = postgres(URL_TEST ?? "", { max: 8, onnotice: () => {} });
   let emp = "";
   const ctx = () => ({ empresaId: emp, hoy: "2026-11-17", ahora: new Date("2026-11-17T09:00:00Z") });
-  const datos = { domicilio: "C/ Nueva 5", codigoPostal: "08001", municipio: "Barcelona", provincia: "Barcelona", iban: "ES91 2100 0418 4502 0005 1332", email: "hola@empresa.es" };
+  const datos = { domicilio: "C/ Nueva 5", codigoPostal: "08001", municipio: "Barcelona", provincia: "Barcelona", iban: "ES91 2100 0418 4502 0005 1332", email: "hola@empresa.es", banco: "CaixaBank" };
 
   beforeAll(async () => {
     await sql.unsafe("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
@@ -40,9 +40,9 @@ d("datos de la empresa en PostgreSQL", () => {
     await cambiarLogotipo(sql, { empresaId: emp }, { nombre: "logo.png", bytes: PNG });
 
     const antigua = await enEmpresa(sql, emp, (tx) => cargarFacturaPDF(tx, f.id));
-    expect(antigua!.emisor).toMatchObject({ domicilio: "C/ Mayor 1", municipio: "Madrid", iban: null, logo: null });
+    expect(antigua!.emisor).toMatchObject({ domicilio: "C/ Mayor 1", municipio: "Madrid", iban: null, banco: null, logo: null });
     const actual = await enEmpresa(sql, emp, (tx) => leerEmpresa(tx, emp));
-    expect(actual).toMatchObject({ domicilio: "C/ Nueva 5", iban: "ES9121000418450200051332", email: "hola@empresa.es" });
+    expect(actual).toMatchObject({ domicilio: "C/ Nueva 5", iban: "ES9121000418450200051332", email: "hola@empresa.es", banco: "CaixaBank" });
 
     const nueva = await emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cli, fechaExpedicion: "2026-11-17", lineas: [{ concepto: "Y", cantidad: 1, precioUnitarioCent: 100, tipoIva: 21 }] });
     const dn = await enEmpresa(sql, emp, (tx) => cargarFacturaPDF(tx, nueva.id));

@@ -28,7 +28,10 @@ export function FormularioEmpresa({ d, editable }: { d: Datos; editable: boolean
       <div className="grid">
         {campo("email", "Email", { type: "email" })}
         {campo("telefono", "Teléfono")}
-        {campo("iban", "IBAN para cobros")}
+      </div>
+      <div className="grid">
+        {campo("iban", "Cuenta para cobros (IBAN)")}
+        {campo("banco", "Banco (opcional)")}
       </div>
       {campo("datosRegistrales", "Datos del Registro Mercantil (pie de las facturas)")}
       <p className="muted" style={{ fontSize: 12, margin: 0 }}>La razón social y el NIF identifican a la empresa ante la AEAT en VERI*FACTU y no se cambian desde aquí.</p>

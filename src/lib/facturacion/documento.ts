@@ -28,7 +28,7 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
   return {
     emisor: {
       razonSocial: e.razonSocial, nombreComercial: e.nombreComercial, nif: e.nif, domicilio: e.domicilio, codigoPostal: e.codigoPostal,
-      municipio: e.municipio, provincia: e.provincia, email: e.email, telefono: e.telefono, datosRegistrales: e.datosRegistrales, iban: e.iban,
+      municipio: e.municipio, provincia: e.provincia, email: e.email, telefono: e.telefono, datosRegistrales: e.datosRegistrales, iban: e.iban, banco: e.banco,
       logo,
     },
     destinatario: dest ? {
