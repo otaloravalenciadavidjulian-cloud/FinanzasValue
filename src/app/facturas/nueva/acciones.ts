@@ -25,6 +25,7 @@ export async function emitir(_prev: EstadoEmision, form: FormData): Promise<Esta
     const r = await emitirFactura(db(), { empresaId: s.empresaId, usuarioId: s.usuarioId }, {
       serieCodigo: String(form.get("serie")),
       clienteId: String(form.get("cliente") || "") || undefined,
+      proyectoId: String(form.get("proyecto") || "") || undefined,
       fechaExpedicion: String(form.get("fecha")),
       vencimiento: String(form.get("vencimiento") || "") || undefined,
       retencionPct: Number(form.get("retencion") || 0),

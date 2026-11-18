@@ -29,6 +29,7 @@ function borradorDeFormulario(g: (k: string) => string, proveedorId: string | un
     fechaExpedicion: g("fecha"),
     categoria: g("categoria") as "compras",
     subcategoria: g("subcategoria") || undefined,
+    proyectoId: g("proyecto") || undefined,
     descripcion: g("descripcion"),
     desglose,
     retencionPct: num(g("retencion") || "0"),

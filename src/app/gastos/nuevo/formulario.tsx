@@ -9,6 +9,7 @@ const TIPOS = [21, 10, 5, 4, 2, 0];
 
 interface Props {
   proveedores: { id: string; razon_social: string; nif: string }[];
+  proyectos?: { id: string; nombre: string }[];
   categorias: { codigo: string; nombre: string }[];
   hoy: string;
   puedeAltaProveedor: boolean;
@@ -65,7 +66,7 @@ interface PropsFormulario extends Omit<Props, "iaActiva"> {
   boton?: string;
 }
 
-export function FormularioGasto({ proveedores, categorias, hoy, puedeAltaProveedor, lectura, guardar, inicial, boton }: PropsFormulario) {
+export function FormularioGasto({ proveedores, proyectos = [], categorias, hoy, puedeAltaProveedor, lectura, guardar, inicial, boton }: PropsFormulario) {
   const [estado, accion, enviando] = useActionState(guardar ?? guardarGasto, {});
   const v = (k: string, d = "") => estado.valores?.[k] ?? lectura?.valores?.[k] ?? inicial?.[k] ?? d;
   const duplicados = estado.posiblesDuplicados ?? [];
@@ -117,6 +118,14 @@ export function FormularioGasto({ proveedores, categorias, hoy, puedeAltaProveed
           </select>
         </label>
         <label>Subcategoría<input name="subcategoria" defaultValue={v("subcategoria")} /></label>
+        {proyectos.length > 0 && (
+          <label>Proyecto
+            <select name="proyecto" defaultValue={v("proyecto")}>
+              <option value="">— Ninguno —</option>
+              {proyectos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+          </label>
+        )}
       </div>
       <label>Descripción<input name="descripcion" required defaultValue={v("descripcion")} /></label>
 

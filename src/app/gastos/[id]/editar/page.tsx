@@ -22,10 +22,11 @@ export default async function EditarGasto({ params }: { params: Promise<{ id: st
     const desglose = await tx`SELECT * FROM desglose_gasto WHERE gasto_id = ${id} ORDER BY tipo_iva DESC`;
     const proveedores = await tx<{ id: string; razon_social: string; nif: string }[]>`
       SELECT id, razon_social, nif FROM terceros WHERE (es_proveedor AND borrado_en IS NULL) OR id = ${g.proveedor_id} ORDER BY razon_social`;
-    return { g, desglose, proveedores };
+    const proyectos = await tx<{ id: string; nombre: string }[]>`SELECT id, nombre FROM proyectos WHERE activo OR id = ${g.proyecto_id} ORDER BY nombre`;
+    return { g, desglose, proveedores, proyectos };
   });
   if (!datos) notFound();
-  const { g, desglose, proveedores } = datos;
+  const { g, desglose, proveedores, proyectos } = datos;
   if (g.borrado_en) {
     return <><h1>Editar gasto</h1><div className="aviso">El gasto está en la papelera: restáuralo antes de editarlo. <Link href={`/gastos/${id}`}>Volver</Link></div></>;
   }
@@ -34,7 +35,7 @@ export default async function EditarGasto({ params }: { params: Promise<{ id: st
   }
   const inicial: Record<string, string> = {
     tipo: g.tipo_documento, proveedor: g.proveedor_id ?? "", numero: g.numero ?? "", fecha: g.fecha, categoria: g.categoria,
-    subcategoria: g.subcategoria ?? "", descripcion: g.descripcion, retencion: pct(g.retencion_pct), vencimiento: g.venc ?? "",
+    subcategoria: g.subcategoria ?? "", proyecto: g.proyecto_id ?? "", descripcion: g.descripcion, retencion: pct(g.retencion_pct), vencimiento: g.venc ?? "",
     metodo: g.metodo_pago ?? "", notas: g.notas ?? "",
   };
   desglose.slice(0, 3).forEach((d, i) => {
@@ -47,7 +48,7 @@ export default async function EditarGasto({ params }: { params: Promise<{ id: st
     <>
       <h1>Editar gasto {g.numero ?? ""}</h1>
       <p className="muted">Los cambios quedan en la auditoría con el valor anterior y el nuevo. <Link href={`/gastos/${id}`}>Cancelar</Link></p>
-      <FormularioGasto proveedores={proveedores} categorias={CATEGORIAS_GASTO.map(({ codigo, nombre }) => ({ codigo, nombre }))} hoy={hoyMadrid()}
+      <FormularioGasto proveedores={proveedores} proyectos={proyectos} categorias={CATEGORIAS_GASTO.map(({ codigo, nombre }) => ({ codigo, nombre }))} hoy={hoyMadrid()}
         puedeAltaProveedor={false} guardar={actualizarGasto.bind(null, id)} inicial={inicial} boton="Guardar cambios" />
     </>
   );
