@@ -31,7 +31,7 @@ async function configurarInterno(f: FormData): Promise<string | null> {
   } catch (e) {
     return e instanceof Error ? e.message : "No se pudo completar la configuración";
   }
-  const err = await iniciarSesion(g("email"), g("contrasena"));
-  if (err) return err;
+  const r = await iniciarSesion(g("email"), g("contrasena"));
+  if ("error" in r) return r.error;
   redirect("/");
 }
