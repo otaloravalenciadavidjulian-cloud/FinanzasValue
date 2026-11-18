@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { enEmpresa, type Sql } from "@/db/cliente";
+import { enEmpresa, type Sql, type Tx } from "@/db/cliente";
 import { hoyMadrid, validarImporteCobro } from "./estado";
 
 export class ErrorCobro extends Error {}
@@ -16,9 +16,14 @@ interface Contexto { empresaId: string; usuarioId?: string; hoy?: string }
 
 /** Registra un cobro de una factura emitida. Bloquea la factura para que dos cobros simultáneos no superen el total. */
 export async function registrarCobro(sql: Sql, ctx: Contexto, facturaId: string, entrada: Movimiento) {
+  return enEmpresa(sql, ctx.empresaId, (tx) => registrarCobroTx(tx, ctx, facturaId, entrada));
+}
+
+/** Igual que registrarCobro, dentro de una transacción ya abierta con el contexto de empresa. */
+export async function registrarCobroTx(tx: Tx, ctx: Contexto, facturaId: string, entrada: Movimiento) {
   const m = movimiento.parse(entrada);
   if (m.fecha > (ctx.hoy ?? hoyMadrid())) throw new ErrorCobro("La fecha del cobro no puede ser futura");
-  return enEmpresa(sql, ctx.empresaId, async (tx) => {
+  {
     const [f] = await tx<{ total_cent: string; anulada: boolean; num_serie: string }[]>`
       SELECT total_cent, anulada, num_serie FROM facturas WHERE id = ${facturaId} FOR UPDATE`;
     if (!f) throw new ErrorCobro("Factura no encontrada");
@@ -33,14 +38,18 @@ export async function registrarCobro(sql: Sql, ctx: Contexto, facturaId: string,
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'registrar_cobro', 'factura', ${facturaId}, ${tx.json({ cobro: c.id, importeCent: m.importeCent, fecha: m.fecha })})`;
     return { id: c.id, cobradoCent: Number(cobrado) + m.importeCent, totalCent: Number(f.total_cent) };
-  });
+  }
 }
 
 /** Registra un pago de una factura recibida, con las mismas reglas que los cobros. */
 export async function registrarPago(sql: Sql, ctx: Contexto, gastoId: string, entrada: Movimiento) {
+  return enEmpresa(sql, ctx.empresaId, (tx) => registrarPagoTx(tx, ctx, gastoId, entrada));
+}
+
+export async function registrarPagoTx(tx: Tx, ctx: Contexto, gastoId: string, entrada: Movimiento) {
   const m = movimiento.parse(entrada);
   if (m.fecha > (ctx.hoy ?? hoyMadrid())) throw new ErrorCobro("La fecha del pago no puede ser futura");
-  return enEmpresa(sql, ctx.empresaId, async (tx) => {
+  {
     const [g] = await tx<{ total_cent: string; borrado_en: Date | null }[]>`
       SELECT total_cent, borrado_en FROM gastos WHERE id = ${gastoId} FOR UPDATE`;
     if (!g) throw new ErrorCobro("Gasto no encontrado");
@@ -55,5 +64,5 @@ export async function registrarPago(sql: Sql, ctx: Contexto, gastoId: string, en
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'registrar_pago', 'gasto', ${gastoId}, ${tx.json({ pago: p.id, importeCent: m.importeCent, fecha: m.fecha })})`;
     return { id: p.id, pagadoCent: Number(pagado) + m.importeCent, totalCent: Number(g.total_cent) };
-  });
+  }
 }

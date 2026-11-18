@@ -54,6 +54,11 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   saldo del propio fichero, el mismo fichero no se importa dos veces y los movimientos repetidos de
   extractos solapados se ignoran. Los movimientos no se modifican ni se borran. Si el saldo calculado
   no coincide con el del último extracto, se avisa de que falta alguno.
+- **Conciliación bancaria** (`/tesoreria/conciliar`): para cada movimiento se proponen, por importe,
+  número de documento y nombre en el concepto, el cobro o pago ya registrado, o la factura o el gasto
+  pendiente (y entonces se registra el cobro o pago y se concilia a la vez). Los movimientos sin
+  factura se explican con una categoría (comisiones, impuestos, nóminas…). Una conciliación se deshace
+  con motivo, nunca se borra.
 
 Importe total del registro: en VERI*FACTU es base más cuotas; la retención de IRPF no se descuenta
 (sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la
