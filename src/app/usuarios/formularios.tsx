@@ -1,13 +1,34 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { accionUsuario, crearUsuario } from "./acciones";
 
 type Rol = { codigo: string; nombre: string; descripcion: string };
 
-function Resultado({ e }: { e: { error?: string; ok?: string; temporal?: string } }) {
+function Invitacion({ texto }: { texto: string }) {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(texto); setCopiado(true); setTimeout(() => setCopiado(false), 2500); } catch { /* el texto sigue visible para copiarlo a mano */ }
+  };
+  return (
+    <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+      <textarea readOnly value={texto} rows={8} style={{ width: "100%", fontSize: 13, fontFamily: "inherit" }} onFocus={(ev) => ev.currentTarget.select()} aria-label="Mensaje para enviar" />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="btn" onClick={copiar}>{copiado ? "✓ Copiado" : "Copiar mensaje"}</button>
+        <a className="btn btn-sec" href={`https://wa.me/?text=${encodeURIComponent(texto)}`} target="_blank" rel="noopener noreferrer">Enviar por WhatsApp</a>
+      </div>
+    </div>
+  );
+}
+
+function Resultado({ e }: { e: { error?: string; ok?: string; temporal?: string; invitacion?: string } }) {
   if (e.error) return <div className="error">{e.error}</div>;
   if (!e.ok) return null;
-  return <div className="aviso">{e.ok}{e.temporal && <> <code style={{ fontSize: 15, fontWeight: 600 }}>{e.temporal}</code></>}</div>;
+  return (
+    <div className="aviso">
+      {e.ok}{e.temporal && <> <code style={{ fontSize: 15, fontWeight: 600 }}>{e.temporal}</code></>}
+      {e.invitacion && <Invitacion texto={e.invitacion} />}
+    </div>
+  );
 }
 
 export function NuevoUsuario({ roles }: { roles: Rol[] }) {
