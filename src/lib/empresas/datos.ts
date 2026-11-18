@@ -6,15 +6,15 @@ export class ErrorEmpresa extends Error {}
 
 export interface DatosEmpresa {
   razonSocial: string; nif: string; nombreComercial: string | null; domicilio: string; codigoPostal: string;
-  municipio: string; provincia: string; email: string | null; telefono: string | null; iban: string | null; banco: string | null;
+  municipio: string; provincia: string; email: string | null; telefono: string | null; iban: string | null; banco: string | null; textoPie: string | null;
   datosRegistrales: string | null; logotipoId: string | null;
 }
 
-const COLUMNAS = `razon_social, nif, nombre_comercial, domicilio, codigo_postal, municipio, provincia, email, telefono, iban, banco, datos_registrales, logotipo_documento_id`;
+const COLUMNAS = `razon_social, nif, nombre_comercial, domicilio, codigo_postal, municipio, provincia, email, telefono, iban, banco, texto_pie, datos_registrales, logotipo_documento_id`;
 type Fila = Record<string, string | null>;
 const aDatos = (f: Fila): DatosEmpresa => ({
   razonSocial: f.razon_social!, nif: f.nif!, nombreComercial: f.nombre_comercial, domicilio: f.domicilio!, codigoPostal: f.codigo_postal!,
-  municipio: f.municipio!, provincia: f.provincia!, email: f.email, telefono: f.telefono, iban: f.iban, banco: f.banco,
+  municipio: f.municipio!, provincia: f.provincia!, email: f.email, telefono: f.telefono, iban: f.iban, banco: f.banco, textoPie: f.texto_pie,
   datosRegistrales: f.datos_registrales, logotipoId: f.logotipo_documento_id,
 });
 
@@ -28,7 +28,7 @@ export async function empresaEn(tx: Tx, empresaId: string, momento: Date | strin
   const [h] = await tx<{ datos: DatosEmpresa }[]>`
     SELECT datos FROM empresas_historial WHERE empresa_id = ${empresaId} AND vigente_hasta > ${momento}::timestamptz
     ORDER BY vigente_hasta LIMIT 1`;
-  return h ? { ...h.datos, banco: h.datos.banco ?? null } : leerEmpresa(tx, empresaId);
+  return h ? { ...h.datos, banco: h.datos.banco ?? null, textoPie: h.datos.textoPie ?? null } : leerEmpresa(tx, empresaId);
 }
 
 const texto = (v: string | undefined | null, max: number) => {
@@ -42,7 +42,7 @@ async function guardarCambio(tx: Tx, ctx: { empresaId: string; usuarioId?: strin
   await tx`INSERT INTO empresas_historial (empresa_id, datos, cambiado_por) VALUES (${ctx.empresaId}, ${tx.json(antes as never)}, ${ctx.usuarioId ?? null})`;
   await tx`UPDATE empresas SET nombre_comercial = ${despues.nombreComercial}, domicilio = ${despues.domicilio}, codigo_postal = ${despues.codigoPostal},
     municipio = ${despues.municipio}, provincia = ${despues.provincia}, email = ${despues.email}, telefono = ${despues.telefono},
-    iban = ${despues.iban}, banco = ${despues.banco}, datos_registrales = ${despues.datosRegistrales}, logotipo_documento_id = ${despues.logotipoId} WHERE id = ${ctx.empresaId}`;
+    iban = ${despues.iban}, banco = ${despues.banco}, texto_pie = ${despues.textoPie}, datos_registrales = ${despues.datosRegistrales}, logotipo_documento_id = ${despues.logotipoId} WHERE id = ${ctx.empresaId}`;
   await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, antes, despues)
     VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'editar_empresa', 'empresa', ${ctx.empresaId},
       ${tx.json(Object.fromEntries(cambios.map((k) => [k, antes[k]])) as never)}, ${tx.json(Object.fromEntries(cambios.map((k) => [k, despues[k]])) as never)})`;
@@ -63,7 +63,7 @@ export async function editarEmpresa(sql: Sql, ctx: { empresaId: string; usuarioI
     const antes = await leerEmpresa(tx, ctx.empresaId);
     return guardarCambio(tx, ctx, antes, {
       ...antes, nombreComercial: texto(d.nombreComercial, 200), domicilio, codigoPostal, municipio, provincia, email,
-      telefono: texto(d.telefono, 30), iban: ibanTexto ? normalizarIban(ibanTexto) : null, banco: texto(d.banco, 100), datosRegistrales: texto(d.datosRegistrales, 300),
+      telefono: texto(d.telefono, 30), iban: ibanTexto ? normalizarIban(ibanTexto) : null, banco: texto(d.banco, 100), textoPie: texto(d.textoPie, 600), datosRegistrales: texto(d.datosRegistrales, 300),
     });
   });
 }

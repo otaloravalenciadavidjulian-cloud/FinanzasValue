@@ -14,7 +14,7 @@ import { formatearIban } from "../tesoreria/iban";
 export interface DatosFacturaPDF {
   emisor: {
     razonSocial: string; nombreComercial?: string | null; nif: string; domicilio: string; codigoPostal: string;
-    municipio: string; provincia: string; email?: string | null; telefono?: string | null; datosRegistrales?: string | null; iban?: string | null; banco?: string | null;
+    municipio: string; provincia: string; email?: string | null; telefono?: string | null; datosRegistrales?: string | null; iban?: string | null; banco?: string | null; textoPie?: string | null;
     /** PNG o JPG. */
     logo?: { bytes: Uint8Array; mime: string } | null;
   };
@@ -109,8 +109,11 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
     return lineas;
   };
 
+  // Texto libre de la empresa al pie de cada página: se reserva su sitio para que el contenido no lo pise.
+  const lineasPie = d.emisor.textoPie ? partir(d.emisor.textoPie, A4.ancho - 2 * MARGEN, 7) : [];
+  const reservaPie = lineasPie.length ? lineasPie.length * 9 + 6 : 0;
   const nuevaPaginaSiHaceFalta = (alto: number) => {
-    if (y - alto >= MARGEN + 30) return;
+    if (y - alto >= MARGEN + 30 + reservaPie) return;
     pagina = pdf.addPage([A4.ancho, A4.alto]);
     y = A4.alto - MARGEN;
     escribir(pagina, `${titulo(d.tipoFactura)} ${d.numSerie} (continuación)`, MARGEN, y, { fuente: negrita, tam: 10 });
@@ -274,6 +277,7 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
   // Pie, marca de anulación y numeración de páginas
   const paginas = pdf.getPages();
   paginas.forEach((p, i) => {
+    lineasPie.forEach((l, j) => escribir(p, l, MARGEN, MARGEN + (lineasPie.length - 1 - j) * 9, { tam: 7, color: GRIS }));
     if (e.datosRegistrales) escribir(p, e.datosRegistrales, MARGEN, MARGEN - 12, { tam: 6.5, color: GRIS });
     escribir(p, `Página ${i + 1} de ${paginas.length}`, A4.ancho - MARGEN, MARGEN - 12, { tam: 7, color: GRIS, derecha: true });
     if (d.anulada) {
