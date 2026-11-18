@@ -75,3 +75,5 @@ export async function cerrarSesion(): Promise<void> {
 export const ROLES_FACTURACION: Rol[] = ["administrador", "direccion", "contable"];
 /** Pueden registrar gastos; el empleado solo ve y gestiona los suyos. */
 export const ROLES_GASTOS: Rol[] = ["administrador", "direccion", "contable", "empleado"];
+/** Contabilidad e impuestos: también la gestoría externa, en solo lectura. */
+export const ROLES_CONTABILIDAD: Rol[] = ["administrador", "direccion", "contable", "gestoria"];
