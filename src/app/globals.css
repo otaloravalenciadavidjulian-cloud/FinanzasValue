@@ -5,6 +5,9 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",
 .app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}
 aside{background:var(--side);color:var(--side-ink);padding:18px 12px}
 aside b{display:block;color:#fff;font-size:20px;padding:0 10px 16px}
+aside a.marca{display:block;padding:2px 10px 18px}aside a.marca:hover{background:none}aside a.marca img{display:block;width:150px;height:auto}
+.logo-acceso{width:200px;height:auto;align-self:end;justify-self:center}
+@media (prefers-color-scheme:dark){.logo-acceso{filter:invert(1)}}
 aside a{display:block;padding:8px 10px;border-radius:6px;color:var(--side-ink);text-decoration:none}
 aside a:hover{background:#ffffff14;color:#fff}
 main{padding:24px;min-width:0;display:grid;gap:16px;align-content:start}
@@ -21,7 +24,7 @@ input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px 
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
 .error{background:var(--bad-soft);color:var(--bad);padding:10px 12px;border-radius:6px}
 .muted{color:var(--muted)}
-@media (max-width:800px){.app{grid-template-columns:1fr}aside{display:flex;flex-wrap:wrap;gap:4px}aside b{padding:8px 10px}}
+@media (max-width:800px){.app{grid-template-columns:1fr}aside{display:flex;flex-wrap:wrap;gap:4px}aside b{padding:8px 10px}aside a.marca{width:100%;padding:6px 10px}aside a.marca img{width:120px}}
 .btn-sec{background:transparent;color:var(--accent);border:1px solid var(--accent)}
 .estado{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);white-space:nowrap}
 .estado-cobrada{color:var(--accent);border-color:var(--accent)}

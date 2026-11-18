@@ -1,4 +1,5 @@
 import type { Tx } from "@/db/cliente";
+import { LOGO_VALUE_PNG } from "@/lib/marca/logo";
 import { contenidoLogotipo, empresaEn } from "@/lib/empresas/datos";
 import { urlQR, type EntornoAEAT } from "@/lib/verifactu/qr";
 import { importeTotalRegistro } from "./emitir";
@@ -19,7 +20,8 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
   if (!f) return null;
   // Datos del emisor tal como estaban al emitir la factura.
   const e = await empresaEn(tx, f.empresa_id, f.emitida_en);
-  const logo = e.logotipoId ? await contenidoLogotipo(tx, e.logotipoId) : null;
+  // Sin logotipo propio, la factura lleva el de Value.
+  const logo = (e.logotipoId ? await contenidoLogotipo(tx, e.logotipoId) : null) ?? { bytes: LOGO_VALUE_PNG, mime: "image/png" };
   const lineas = await tx`SELECT * FROM lineas_factura WHERE factura_id = ${id} ORDER BY orden`;
   const desglose = await tx`SELECT * FROM desglose_iva WHERE factura_id = ${id} ORDER BY tipo_iva DESC, causa_iva`;
   const dest = f.destinatario as Record<string, string | null> | null;

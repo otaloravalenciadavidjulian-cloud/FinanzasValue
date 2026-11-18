@@ -4,7 +4,7 @@ import { sesionActual } from "@/lib/auth/sesion";
 import { salir } from "./login/acciones";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Value Finanzas", description: "Gestión financiera empresarial" };
+export const metadata: Metadata = { title: "vdn value · Finanzas", description: "Gestión financiera empresarial" };
 
 const menu = [
   ["/", "Dashboard"], ["/facturas", "Ingresos y facturación"], ["/facturas/nueva", "Nueva factura"], ["/clientes", "Clientes"],
@@ -19,7 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {s ? (
           <div className="app">
             <aside>
-              <b>Value</b>
+              <Link href="/" className="marca" aria-label="Value, inicio"><img src="/marca/logo-blanco.png" alt="vdn value" width={160} height={34} /></Link>
               <nav>
                 {menu.map(([href, txt]) => <Link key={href} href={href}>{txt}</Link>)}
                 {s.rol !== "empleado" && <Link href="/empresa">Empresa</Link>}
@@ -35,7 +35,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main>{children}</main>
           </div>
         ) : (
-          <main style={{ minHeight: "100vh", placeItems: "center" }}>{children}</main>
+          <main style={{ minHeight: "100vh", placeItems: "center" }}>
+            <img className="logo-acceso" src="/marca/logo-negro.png" alt="vdn value" width={200} height={43} />
+            {children}
+          </main>
         )}
       </body>
     </html>
