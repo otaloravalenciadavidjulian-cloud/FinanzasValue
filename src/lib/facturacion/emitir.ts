@@ -33,6 +33,14 @@ export type BorradorFactura = z.input<typeof borradorFactura>;
 
 export class ErrorFacturacion extends Error {}
 
+/**
+ * Importe total que va al registro VERI*FACTU, a la huella y al QR: base más cuotas.
+ * La retención de IRPF no se descuenta aquí (sí en el total a pagar de la factura).
+ */
+export function importeTotalRegistro(t: { baseCent: number; cuotaIvaCent: number }): number {
+  return t.baseCent + t.cuotaIvaCent;
+}
+
 interface Contexto {
   empresaId: string;
   usuarioId?: string;
@@ -125,7 +133,7 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
     const registro = await encadenar(tx, ctx.empresaId, (anterior) =>
       cadenaAlta({
         nifEmisor: empresa.nif, numSerie, fechaExpedicion: b.fechaExpedicion, tipoFactura: serie.tipo_factura,
-        cuotaTotalCent: t.cuotaIvaCent, importeTotalCent: t.totalCent, huellaAnterior: anterior, fechaHoraHuso,
+        cuotaTotalCent: t.cuotaIvaCent, importeTotalCent: importeTotalRegistro(t), huellaAnterior: anterior, fechaHoraHuso,
       }), { tipo: "alta", facturaId: factura.id, numSerie, fechaExpedicion: b.fechaExpedicion, fechaHoraHuso });
 
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)

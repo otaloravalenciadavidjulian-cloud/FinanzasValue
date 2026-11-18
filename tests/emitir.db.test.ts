@@ -4,6 +4,11 @@ import { execSync } from "node:child_process";
 import { comprobarRolSeguro, enEmpresa } from "@/db/cliente";
 import { anularFactura, emitirFactura } from "@/lib/facturacion/emitir";
 import { verificarCadena } from "@/lib/verifactu/huella";
+import { cargarFacturaPDF } from "@/lib/facturacion/documento";
+import { generarFacturaPDF } from "@/lib/facturacion/pdf";
+import { cargarRegistros } from "@/lib/verifactu/registros";
+import { documentoXML } from "@/lib/verifactu/xml";
+import { hayXmllint, validarContraXSD } from "./xsd";
 
 /** Tests contra PostgreSQL real. Se omiten si no hay DATABASE_URL_TEST. */
 const URL_TEST = process.env.DATABASE_URL_TEST;
@@ -88,6 +93,37 @@ d("emisión de facturas en PostgreSQL", () => {
     expect(anul.huellaAnterior).toBe(r.huella);
     await expect(anularFactura(sql, ctx(), r.id, "otra vez")).rejects.toThrow(/ya está anulada/);
     await expect(enEmpresa(sql, empA, (tx) => tx`UPDATE facturas SET anulada = false WHERE id = ${r.id}`)).rejects.toThrow(/vigente/);
+  });
+
+  it("genera desde lo guardado el XML de la AEAT y el PDF de cada factura", async () => {
+    const f1 = await emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cliA, fechaExpedicion: "2026-11-17", retencionPct: 15,
+      lineas: [linea, { concepto: "Libros", cantidad: 1, precioUnitarioCent: 5000, tipoIva: 4 }] });
+    const r = await emitirFactura(sql, ctx(), { serieCodigo: "R", clienteId: cliA, fechaExpedicion: "2026-11-17", rectificaId: f1.id,
+      tipoRectificacion: "S", motivoRectificacion: "Precio erróneo", lineas: [{ ...linea, precioUnitarioCent: 45000 }] });
+    await anularFactura(sql, ctx(), f1.id, "Duplicada");
+
+    const registros = await enEmpresa(sql, empA, (tx) => cargarRegistros(tx, {}));
+    expect(registros.map((x) => x.datos.tipo)).toEqual(["alta", "alta", "anulacion"]);
+    expect(registros[0].datos.anterior).toBeNull();
+    expect(registros[2].datos.anterior?.huella).toBe(r.huella);
+    const alta = registros[0].datos;
+    // La retención no se descuenta del importe total del registro.
+    expect(alta.tipo === "alta" && alta.importeTotalCent).toBe(100000 + 21000 + 5000 + 200);
+    const rect = registros[1].datos;
+    expect(rect.tipo === "alta" && rect.rectificacion).toMatchObject({ tipo: "S", baseRectificadaCent: 105000, cuotaRectificadaCent: 21200 });
+
+    const xml = documentoXML(alta.emisor, registros.map((x) => x.datos));
+    if (hayXmllint) expect(validarContraXSD(xml)).toBeNull();
+
+    // RLS: otra empresa no ve los registros.
+    expect(await enEmpresa(sql, empB, (tx) => cargarRegistros(tx, { facturaId: f1.id }))).toHaveLength(0);
+
+    const datosPDF = await enEmpresa(sql, empA, (tx) => cargarFacturaPDF(tx, r.id, "pruebas"));
+    expect(datosPDF?.rectifica?.numSerie).toBe(f1.numSerie);
+    expect(datosPDF?.urlQR).toContain("importe=1089.00");
+    const pdf = await generarFacturaPDF(datosPDF!);
+    expect(Buffer.from(pdf.slice(0, 5)).toString()).toBe("%PDF-");
+    expect((await enEmpresa(sql, empA, (tx) => cargarFacturaPDF(tx, f1.id)))?.anulada).toBe(true);
   });
 
   it("abre la serie del ejercicio siguiente con numeración desde 1", async () => {

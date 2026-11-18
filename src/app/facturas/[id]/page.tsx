@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { db, enEmpresa } from "@/db/cliente";
 import { requerirSesion } from "@/lib/auth/sesion";
 import { formatearEuros } from "@/lib/fiscal/dinero";
+import { entornoAEAT } from "@/lib/facturacion/documento";
+import { importeTotalRegistro } from "@/lib/facturacion/emitir";
 import { LEYENDA_VERIFACTU, urlQR } from "@/lib/verifactu/qr";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +22,14 @@ export default async function Factura({ params }: { params: Promise<{ id: string
   });
   if (!datos) notFound();
   const { f, lineas, desglose, registros } = datos;
-  const qr = urlQR({ nifEmisor: f.nif_emisor, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: Number(f.total_cent), entorno: process.env.VERIFACTU_ENTORNO === "produccion" ? "produccion" : "pruebas" });
+  const qr = urlQR({ nifEmisor: f.nif_emisor, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent: Number(f.base_cent), cuotaIvaCent: Number(f.cuota_iva_cent) }), entorno: entornoAEAT() });
   return (
     <>
       <h1>Factura {f.num_serie}{f.anulada ? " (anulada)" : ""}</h1>
+      <p style={{ display: "flex", gap: 8 }}>
+        <a className="btn" href={`/facturas/${f.id}/pdf`} target="_blank" rel="noopener">Ver PDF</a>
+        <a className="btn btn-sec" href={`/facturas/${f.id}/xml`}>Descargar XML VERI*FACTU</a>
+      </p>
       <div className="panel">
         <p><b>{f.emisor}</b> · NIF {f.nif_emisor}<br />Cliente: {f.destinatario?.razon_social ?? "—"} · NIF {f.destinatario?.nif ?? "—"}</p>
         <table>
