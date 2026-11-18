@@ -1,6 +1,6 @@
 "use client";
 import { useActionState } from "react";
-import { borrarPruebas, guardarDatos, subirLogotipo } from "./acciones";
+import { borrarPruebas, cambiarVerifactu, guardarDatos, subirLogotipo } from "./acciones";
 
 type Datos = Record<string, string | null>;
 const Estado = ({ e }: { e: { error?: string; ok?: string } }) => (e.error ? <div className="error">{e.error}</div> : e.ok ? <div className="aviso">{e.ok}</div> : null);
@@ -74,13 +74,31 @@ export function BorrarFacturasPrueba({ facturas }: { facturas: number }) {
       <b>Facturas de prueba</b>
       <Estado e={e} />
       <p className="muted" style={{ margin: 0 }}>
-        Value está en el entorno de pruebas de VERI*FACTU: nada se ha enviado a la AEAT. Antes de empezar a facturar de verdad puedes
+        Nada se ha enviado a la AEAT. Si las facturas emitidas hasta ahora eran solo pruebas, antes de empezar a facturar de verdad puedes
         borrar {facturas === 1 ? "la factura emitida" : `las ${facturas} facturas emitidas`} (con sus cobros y registros) para que la numeración
         empiece en 1. Clientes, gastos y el resto de datos no se tocan. No se puede deshacer.
       </p>
       <label>Escribe BORRAR para confirmar<input name="confirmacion" autoComplete="off" required /></label>
       <div><button className="btn" style={{ background: "var(--bad)" }} disabled={enviando || facturas === 0}>
         {enviando ? "Borrando…" : "Borrar facturas de prueba"}</button></div>
+    </form>
+  );
+}
+
+export function InterruptorVerifactu({ activo }: { activo: boolean }) {
+  const [e, accion, enviando] = useActionState(cambiarVerifactu, {});
+  return (
+    <form action={accion} className="panel" style={{ display: "grid", gap: 10 }}>
+      <b>VERI*FACTU: {activo ? "activado" : "desactivado"}</b>
+      <Estado e={e} />
+      <p className="muted" style={{ margin: 0 }}>
+        {activo
+          ? "Las facturas que emitas llevan el QR tributario y la leyenda VERI*FACTU."
+          : "Las facturas que emitas salen sin QR tributario ni leyenda VERI*FACTU. Value sigue guardando cada factura con su registro encadenado, así que activarlo después no cambia nada más."}
+        {" "}Las facturas ya emitidas no cambian. VERI*FACTU será obligatorio para las sociedades a partir del 1 de enero de 2027.
+      </p>
+      <input type="hidden" name="activo" value={activo ? "0" : "1"} />
+      <div><button className={activo ? "btn btn-sec" : "btn"} disabled={enviando}>{enviando ? "Guardando…" : activo ? "Desactivar VERI*FACTU" : "Activar VERI*FACTU"}</button></div>
     </form>
   );
 }

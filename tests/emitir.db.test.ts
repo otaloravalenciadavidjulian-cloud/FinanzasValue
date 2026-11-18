@@ -1,3 +1,4 @@
+import { PDFDocument } from "pdf-lib";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { execSync } from "node:child_process";
@@ -95,7 +96,23 @@ d("emisión de facturas en PostgreSQL", () => {
     await expect(enEmpresa(sql, empA, (tx) => tx`UPDATE facturas SET anulada = false WHERE id = ${r.id}`)).rejects.toThrow(/vigente/);
   });
 
+  it("sin VERI*FACTU activado la factura sale sin QR y su registro no se remite, pero la cadena sigue", async () => {
+    const f = await emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cliA, fechaExpedicion: "2026-11-17", lineas: [linea] });
+    const d = await enEmpresa(sql, empA, (tx) => cargarFacturaPDF(tx, f.id, "pruebas"));
+    expect(d?.urlQR).toBeNull();
+    expect(d?.entornoPruebas).toBe(false);
+    expect((await PDFDocument.load(await generarFacturaPDF(d!))).getPageCount()).toBe(1);
+    await sql`UPDATE empresas SET verifactu_activo = true WHERE id = ${empA}`;
+    const g = await emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cliA, fechaExpedicion: "2026-11-17", lineas: [linea] });
+    expect(g.huellaAnterior).toBe(f.huella);
+    expect((await enEmpresa(sql, empA, (tx) => cargarFacturaPDF(tx, g.id, "pruebas")))?.urlQR).toContain("numserie=");
+    expect((await enEmpresa(sql, empA, (tx) => cargarFacturaPDF(tx, f.id, "pruebas")))?.urlQR).toBeNull();
+    const envios = await enEmpresa(sql, empA, (tx) => tx`SELECT r.num_serie FROM envios_aeat e JOIN registros_facturacion r ON r.id = e.registro_id`);
+    expect(envios.map((e) => e.num_serie)).toEqual([g.numSerie]);
+  });
+
   it("genera desde lo guardado el XML de la AEAT y el PDF de cada factura", async () => {
+    await sql`UPDATE empresas SET verifactu_activo = true WHERE id = ${empA}`;
     const f1 = await emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cliA, fechaExpedicion: "2026-11-17", retencionPct: 15,
       lineas: [linea, { concepto: "Libros", cantidad: 1, precioUnitarioCent: 5000, tipoIva: 4 }] });
     const r = await emitirFactura(sql, ctx(), { serieCodigo: "R", clienteId: cliA, fechaExpedicion: "2026-11-17", rectificaId: f1.id,

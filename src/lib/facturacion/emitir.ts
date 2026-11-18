@@ -69,7 +69,7 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
   const t = calcularTotales(b.lineas, b.retencionPct);
 
   return enEmpresa(sql, ctx.empresaId, async (tx) => {
-    const [empresa] = await tx<{ nif: string }[]>`SELECT nif FROM empresas WHERE id = ${ctx.empresaId}`;
+    const [empresa] = await tx<{ nif: string; verifactu_activo: boolean }[]>`SELECT nif, verifactu_activo FROM empresas WHERE id = ${ctx.empresaId}`;
     if (!empresa) throw new ErrorFacturacion("Empresa no encontrada");
 
     const ejercicio = Number(b.fechaExpedicion.slice(0, 4));
@@ -117,12 +117,12 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
     const [factura] = await tx<{ id: string }[]>`
       INSERT INTO facturas (empresa_id, serie_id, numero, num_serie, tipo_factura, fecha_expedicion, fecha_operacion,
         cliente_id, destinatario, proyecto_id, base_cent, cuota_iva_cent, retencion_pct, retencion_cent, total_cent,
-        vencimiento, metodo_cobro, condiciones_pago, observaciones, referencia, rectifica_id, tipo_rectificacion, motivo_rectificacion, emitida_por)
+        vencimiento, metodo_cobro, condiciones_pago, observaciones, referencia, rectifica_id, tipo_rectificacion, motivo_rectificacion, emitida_por, verifactu)
       VALUES (${ctx.empresaId}, ${serie.id}, ${numero}, ${numSerie}, ${serie.tipo_factura}, ${b.fechaExpedicion}, ${b.fechaOperacion ?? null},
         ${b.clienteId ?? null}, ${destinatario ? tx.json(destinatario as never) : null}, ${b.proyectoId ?? null},
         ${t.baseCent}, ${t.cuotaIvaCent}, ${b.retencionPct}, ${t.retencionCent}, ${t.totalCent},
         ${b.vencimiento ?? null}, ${b.metodoCobro ?? null}, ${b.condicionesPago ?? null}, ${b.observaciones ?? null}, ${b.referencia || null},
-        ${b.rectificaId ?? null}, ${b.rectificaId ? (b.tipoRectificacion ?? "I") : null}, ${b.motivoRectificacion ?? null}, ${ctx.usuarioId ?? null})
+        ${b.rectificaId ?? null}, ${b.rectificaId ? (b.tipoRectificacion ?? "I") : null}, ${b.motivoRectificacion ?? null}, ${ctx.usuarioId ?? null}, ${empresa.verifactu_activo})
       RETURNING id`;
 
     for (const [i, l] of b.lineas.entries()) {
@@ -137,7 +137,7 @@ export async function emitirFactura(sql: Sql, ctx: Contexto, entrada: BorradorFa
       cadenaAlta({
         nifEmisor: empresa.nif, numSerie, fechaExpedicion: b.fechaExpedicion, tipoFactura: serie.tipo_factura,
         cuotaTotalCent: t.cuotaIvaCent, importeTotalCent: importeTotalRegistro(t), huellaAnterior: anterior, fechaHoraHuso,
-      }), { tipo: "alta", facturaId: factura.id, numSerie, fechaExpedicion: b.fechaExpedicion, fechaHoraHuso });
+      }), { tipo: "alta", facturaId: factura.id, numSerie, fechaExpedicion: b.fechaExpedicion, fechaHoraHuso, enviar: empresa.verifactu_activo });
 
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'emitir_factura', 'factura', ${factura.id}, ${tx.json({ numSerie, totalCent: t.totalCent, huella: registro.huella })})`;
@@ -151,14 +151,14 @@ export async function anularFactura(sql: Sql, ctx: Contexto, facturaId: string, 
   if (!motivo.trim()) throw new ErrorFacturacion("Indica el motivo de la anulación");
   const fechaHoraHuso = fechaHoraHusoMadrid(ctx.ahora ?? new Date());
   return enEmpresa(sql, ctx.empresaId, async (tx) => {
-    const [f] = await tx<{ num_serie: string; fecha: string; anulada: boolean; nif: string }[]>`
-      SELECT f.num_serie, to_char(f.fecha_expedicion, 'YYYY-MM-DD') AS fecha, f.anulada, e.nif
+    const [f] = await tx<{ num_serie: string; fecha: string; anulada: boolean; nif: string; verifactu: boolean }[]>`
+      SELECT f.num_serie, f.verifactu, to_char(f.fecha_expedicion, 'YYYY-MM-DD') AS fecha, f.anulada, e.nif
       FROM facturas f JOIN empresas e ON e.id = f.empresa_id WHERE f.id = ${facturaId} FOR UPDATE OF f`;
     if (!f) throw new ErrorFacturacion("Factura no encontrada");
     if (f.anulada) throw new ErrorFacturacion("La factura ya está anulada");
     const registro = await encadenar(tx, ctx.empresaId, (anterior) =>
       cadenaAnulacion({ nifEmisor: f.nif, numSerie: f.num_serie, fechaExpedicion: f.fecha, huellaAnterior: anterior, fechaHoraHuso }),
-      { tipo: "anulacion", facturaId, numSerie: f.num_serie, fechaExpedicion: f.fecha, fechaHoraHuso });
+      { tipo: "anulacion", facturaId, numSerie: f.num_serie, fechaExpedicion: f.fecha, fechaHoraHuso, enviar: f.verifactu });
     await tx`UPDATE facturas SET anulada = true WHERE id = ${facturaId}`;
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'anular_factura', 'factura', ${facturaId}, ${tx.json({ motivo, huella: registro.huella })})`;
@@ -170,7 +170,7 @@ async function encadenar(
   tx: Parameters<Parameters<typeof enEmpresa>[2]>[0],
   empresaId: string,
   construir: (huellaAnterior: string) => string,
-  r: { tipo: "alta" | "anulacion"; facturaId: string; numSerie: string; fechaExpedicion: string; fechaHoraHuso: string },
+  r: { tipo: "alta" | "anulacion"; facturaId: string; numSerie: string; fechaExpedicion: string; fechaHoraHuso: string; enviar: boolean },
 ) {
   await tx`INSERT INTO cadena_registros (empresa_id) VALUES (${empresaId}) ON CONFLICT DO NOTHING`;
   const [cab] = await tx<{ ultima_secuencia: string; ultima_huella: string | null }[]>`
@@ -182,7 +182,8 @@ async function encadenar(
   await tx`INSERT INTO registros_facturacion (empresa_id, secuencia, tipo, factura_id, num_serie, fecha_expedicion, fecha_hora_huso, cadena, huella, huella_anterior)
     VALUES (${empresaId}, ${secuencia}, ${r.tipo}, ${r.facturaId}, ${r.numSerie}, ${r.fechaExpedicion}, ${r.fechaHoraHuso}, ${cadena}, ${h}, ${anterior || null})`;
   await tx`UPDATE cadena_registros SET ultima_secuencia = ${secuencia}, ultima_huella = ${h} WHERE empresa_id = ${empresaId}`;
-  await tx`INSERT INTO envios_aeat (empresa_id, registro_id, intento, estado)
+  // Sin VERI*FACTU el registro se conserva pero no se remite a la AEAT.
+  if (r.enviar) await tx`INSERT INTO envios_aeat (empresa_id, registro_id, intento, estado)
     SELECT ${empresaId}, id, 1, 'pendiente' FROM registros_facturacion WHERE empresa_id = ${empresaId} AND secuencia = ${secuencia}`;
   return { huella: h, huellaAnterior: anterior || null, secuencia };
 }

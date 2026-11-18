@@ -1,6 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db/cliente";
+import { db, enEmpresa } from "@/db/cliente";
 import { requerirSesion, ROLES_ADMINISTRACION, ROLES_EMPRESA_EDICION } from "@/lib/auth/sesion";
 import { borrarFacturasDePrueba, ErrorBorradoPruebas } from "@/lib/facturacion/pruebas";
 import { ErrorDocumento } from "@/lib/documentos/almacen";
@@ -55,4 +55,16 @@ export async function borrarPruebas(_p: Estado, f: FormData): Promise<Estado> {
     if (e instanceof ErrorBorradoPruebas) return { error: e.message };
     throw e;
   }
+}
+
+export async function cambiarVerifactu(_p: Estado, f: FormData): Promise<Estado> {
+  const s = await requerirSesion(ROLES_ADMINISTRACION);
+  const activo = f.get("activo") === "1";
+  await enEmpresa(db(), s.empresaId, async (tx) => {
+    await tx`UPDATE empresas SET verifactu_activo = ${activo} WHERE id = ${s.empresaId}`;
+    await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
+      VALUES (${s.empresaId}, ${s.usuarioId}, 'cambiar_verifactu', 'empresa', ${s.empresaId}, ${tx.json({ activo })})`;
+  });
+  revalidatePath("/", "layout");
+  return { ok: activo ? "VERI*FACTU activado: las próximas facturas llevarán el QR tributario y la leyenda." : "VERI*FACTU desactivado: las próximas facturas saldrán sin QR ni leyenda." };
 }

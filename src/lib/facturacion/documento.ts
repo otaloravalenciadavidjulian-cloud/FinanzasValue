@@ -57,7 +57,7 @@ export async function cargarFacturaPDF(tx: Tx, id: string, entorno: EntornoAEAT 
     observaciones: f.observaciones,
     referencia: f.referencia,
     anulada: f.anulada,
-    urlQR: urlQR({ nifEmisor: e.nif, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent, cuotaIvaCent }), entorno }),
-    entornoPruebas: entorno === "pruebas",
+    urlQR: !f.verifactu ? null : urlQR({ nifEmisor: e.nif, numSerie: f.num_serie, fechaExpedicion: f.fecha, importeTotalCent: importeTotalRegistro({ baseCent, cuotaIvaCent }), entorno }),
+    entornoPruebas: f.verifactu && entorno === "pruebas",
   };
 }

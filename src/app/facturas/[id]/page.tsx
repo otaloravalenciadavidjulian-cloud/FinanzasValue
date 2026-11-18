@@ -42,7 +42,7 @@ export default async function Factura({ params }: { params: Promise<{ id: string
       <h1>Factura {f.num_serie}{f.anulada ? " (anulada)" : ""}</h1>
       <p style={{ display: "flex", gap: 8 }}>
         <a className="btn" href={`/facturas/${f.id}/pdf`} target="_blank" rel="noopener">Ver PDF</a>
-        <a className="btn btn-sec" href={`/facturas/${f.id}/xml`}>Descargar XML VERI*FACTU</a>
+        {f.verifactu && <a className="btn btn-sec" href={`/facturas/${f.id}/xml`}>Descargar XML VERI*FACTU</a>}
         {facturaeLista && (
           <a className="btn btn-sec" href={`/facturas/${f.id}/facturae`} title="Formato Facturae 3.2.2 sin firmar. Para FACe, fírmala con el certificado de la empresa (por ejemplo, con AutoFirma).">Descargar Facturae</a>
         )}
@@ -62,7 +62,7 @@ export default async function Factura({ params }: { params: Promise<{ id: string
           {Number(f.retencion_cent) ? <>Retención IRPF: −{formatearEuros(Number(f.retencion_cent))}<br /></> : null}
           <b>Total: {formatearEuros(Number(f.total_cent))}</b>
         </p>
-        <p>QR tributario (VERI*FACTU) · {LEYENDA_VERIFACTU}<br /><span className="mono">{qr}</span></p>
+        {f.verifactu && <p>QR tributario (VERI*FACTU) · {LEYENDA_VERIFACTU}<br /><span className="mono">{qr}</span></p>}
       </div>
       <div className="panel">
         <b>Cobros</b> <span className={`estado estado-${estado}`}>{ETIQUETA_COBRO[estado]}</span>

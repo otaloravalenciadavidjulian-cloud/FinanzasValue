@@ -42,7 +42,8 @@ export interface DatosFacturaPDF {
   /** Referencia o número de pedido del cliente. */
   referencia?: string | null;
   anulada: boolean;
-  urlQR: string;
+  /** Solo en facturas emitidas con VERI*FACTU; sin él no se imprime QR tributario ni leyenda. */
+  urlQR: string | null;
   entornoPruebas: boolean;
 }
 
@@ -178,14 +179,17 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
   // ── Encabezado: logotipo y emisor a la izquierda; QR tributario arriba a la derecha (Orden HAC/1177/2024).
   const ladoQR = 30 * MM;
   const xQR = derecha - ladoQR;
-  const png = await QRCode.toBuffer(d.urlQR, { errorCorrectionLevel: "M", type: "png", margin: 0, width: 400 });
-  const qr = await pdf.embedPng(png);
-  escribir(pagina, "QR tributario:", xQR, y - 6, { tam: 6.5, color: GRIS });
-  pagina.drawImage(qr, { x: xQR, y: y - 12 - ladoQR, width: ladoQR, height: ladoQR });
-  escribir(pagina, "VERI*FACTU", xQR + ladoQR / 2 - negrita.widthOfTextAtSize("VERI*FACTU", 7.5) / 2, y - 23 - ladoQR, { tam: 7.5, fuente: negrita });
-  const leyenda = partir(LEYENDA_VERIFACTU, ladoQR + 16, 5.5);
-  leyenda.forEach((l, i) => escribir(pagina, l, xQR + ladoQR / 2 - normal.widthOfTextAtSize(l, 5.5) / 2, y - 31 - ladoQR - i * 6.5, { tam: 5.5, color: GRIS }));
-  const finQR = y - 31 - ladoQR - leyenda.length * 6.5;
+  let finQR = y;
+  if (d.urlQR) {
+    const png = await QRCode.toBuffer(d.urlQR, { errorCorrectionLevel: "M", type: "png", margin: 0, width: 400 });
+    const qr = await pdf.embedPng(png);
+    escribir(pagina, "QR tributario:", xQR, y - 6, { tam: 6.5, color: GRIS });
+    pagina.drawImage(qr, { x: xQR, y: y - 12 - ladoQR, width: ladoQR, height: ladoQR });
+    escribir(pagina, "VERI*FACTU", xQR + ladoQR / 2 - negrita.widthOfTextAtSize("VERI*FACTU", 7.5) / 2, y - 23 - ladoQR, { tam: 7.5, fuente: negrita });
+    const leyenda = partir(LEYENDA_VERIFACTU, ladoQR + 16, 5.5);
+    leyenda.forEach((l, i) => escribir(pagina, l, xQR + ladoQR / 2 - normal.widthOfTextAtSize(l, 5.5) / 2, y - 31 - ladoQR - i * 6.5, { tam: 5.5, color: GRIS }));
+    finQR = y - 31 - ladoQR - leyenda.length * 6.5;
+  }
 
   const logo = e.logo ?? { bytes: LOGO_VALUE_PNG, mime: "image/png" };
   let ye = y;
