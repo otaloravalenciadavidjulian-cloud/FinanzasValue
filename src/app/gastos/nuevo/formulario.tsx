@@ -1,21 +1,72 @@
 "use client";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { guardarGasto } from "../acciones";
+import { leerArchivo, type ResultadoLectura } from "../justificantes";
+import { conArchivoPreparado } from "../reducir-imagen";
 
 const TIPOS = [21, 10, 5, 4, 2, 0];
 
-export function FormularioGasto({ proveedores, categorias, hoy }: {
+interface Props {
   proveedores: { id: string; razon_social: string; nif: string }[];
   categorias: { codigo: string; nombre: string }[];
   hoy: string;
-}) {
-  const [estado, accion, enviando] = useActionState(guardarGasto, {});
-  const v = (k: string, d = "") => estado.valores?.[k] ?? d;
-  const duplicados = estado.posiblesDuplicados ?? [];
+  puedeAltaProveedor: boolean;
+  iaActiva: boolean;
+}
+
+/** Alta de gasto: primero, opcionalmente, se lee el justificante; después se revisa y se guarda. */
+export function AltaGasto(props: Props) {
+  const [lectura, setLectura] = useState<ResultadoLectura | null>(null);
   return (
-    <form key={JSON.stringify(estado)} action={accion} className="panel" style={{ display: "grid", gap: 14 }}>
+    <>
+      <LectorJustificante iaActiva={props.iaActiva} lectura={lectura} onLectura={setLectura} />
+      <FormularioGasto {...props} lectura={lectura} />
+    </>
+  );
+}
+
+function LectorJustificante({ iaActiva, lectura, onLectura }: { iaActiva: boolean; lectura: ResultadoLectura | null; onLectura: (l: ResultadoLectura) => void }) {
+  const [error, setError] = useState<string>();
+  const [leyendo, iniciar] = useTransition();
+  const leer = (f: FormData) => iniciar(async () => {
+    setError(undefined);
+    const r = await leerArchivo({}, await conArchivoPreparado(f));
+    if (r.error) setError(r.error); else onLectura(r);
+  });
+  return (
+    <div className="panel" style={{ display: "grid", gap: 10 }}>
+      <b>Justificante</b>
+      <p className="muted" style={{ margin: 0 }}>
+        Sube la factura o el ticket (PDF o foto) y Value propondrá los datos para que los revises.
+        {iaActiva ? " Se lee el QR tributario y el contenido con IA." : " Se lee el QR tributario; la lectura con IA no está activada."}
+      </p>
+      {lectura?.documentoId ? (
+        <div className="aviso">
+          <b>Leído: {lectura.nombre}.</b> Revisa todos los datos antes de guardar; los que no se han podido leer están vacíos.
+          {lectura.avisos && lectura.avisos.length > 0 && <ul style={{ margin: "6px 0 0" }}>{lectura.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>}
+        </div>
+      ) : (
+        <form action={leer} style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap" }}>
+          <label style={{ flex: 1, minWidth: 220 }}>Archivo<input type="file" name="archivo" required accept="application/pdf,image/*" /></label>
+          <button className="btn" disabled={leyendo}>{leyendo ? "Leyendo…" : "Subir y leer"}</button>
+        </form>
+      )}
+      {error && <div className="error">{error}</div>}
+    </div>
+  );
+}
+
+function FormularioGasto({ proveedores, categorias, hoy, puedeAltaProveedor, lectura }: Props & { lectura: ResultadoLectura | null }) {
+  const [estado, accion, enviando] = useActionState(guardarGasto, {});
+  const v = (k: string, d = "") => estado.valores?.[k] ?? lectura?.valores?.[k] ?? d;
+  const duplicados = estado.posiblesDuplicados ?? [];
+  const documentoId = v("documentoId", lectura?.documentoId ?? "");
+  const nuevo = lectura?.proveedorNuevo;
+  return (
+    <form key={JSON.stringify(estado) + (lectura?.documentoId ?? "")} action={accion} className="panel" style={{ display: "grid", gap: 14 }}>
       {estado.error && <div className="error">{estado.error}</div>}
+      {documentoId && <input type="hidden" name="documentoId" value={documentoId} />}
       {duplicados.length > 0 && (
         <div className="aviso">
           <b>Puede que este gasto ya esté registrado.</b> {duplicados[0].motivo}:
@@ -41,6 +92,14 @@ export function FormularioGasto({ proveedores, categorias, hoy }: {
             {proveedores.map((p) => <option key={p.id} value={p.id}>{p.razon_social} · {p.nif}</option>)}
           </select>
         </label>
+        {nuevo && (puedeAltaProveedor ? (
+          <label style={{ alignSelf: "end" }}>
+            <span><input type="checkbox" name="altaProveedor" value="1" defaultChecked={v("altaProveedor", "1") === "1"} style={{ width: "auto", marginRight: 6 }} />
+              Si no eliges proveedor, dar de alta {nuevo.nombre ? `a ${nuevo.nombre}` : "al proveedor leído"} (NIF {nuevo.nif})</span>
+            <input type="hidden" name="nuevoNif" value={nuevo.nif} />
+            <input type="hidden" name="nuevoNombre" value={nuevo.nombre} />
+          </label>
+        ) : <p className="muted" style={{ alignSelf: "end", margin: 0 }}>Proveedor leído: {nuevo.nombre} (NIF {nuevo.nif}), aún no dado de alta.</p>)}
         <label>Número de factura<input name="numero" defaultValue={v("numero")} /></label>
         <label>Fecha de la factura<input type="date" name="fecha" required max={hoy} defaultValue={v("fecha", hoy)} /></label>
         <label>Categoría
@@ -74,7 +133,7 @@ export function FormularioGasto({ proveedores, categorias, hoy }: {
         <label>Forma de pago<input name="metodo" defaultValue={v("metodo")} /></label>
         <label>Notas<input name="notas" defaultValue={v("notas")} /></label>
       </div>
-      <p className="muted" style={{ fontSize: 12, margin: 0 }}>El gasto queda marcado como pendiente de documentación hasta que se pueda adjuntar el justificante.</p>
+      {!documentoId && <p className="muted" style={{ fontSize: 12, margin: 0 }}>Sin justificante, el gasto queda marcado como pendiente de documentación hasta que se adjunte.</p>}
       <div><button className="btn" disabled={enviando}>{enviando ? "Guardando…" : "Guardar gasto"}</button></div>
     </form>
   );

@@ -3,6 +3,7 @@ import { enEmpresa, type Sql } from "@/db/cliente";
 import { hoyMadrid } from "@/lib/cobros/estado";
 import { redondear } from "@/lib/fiscal/dinero";
 import { TIPOS_IVA } from "@/lib/fiscal/totales";
+import { asignarBorrador, comprobarNoRepetido, ErrorDocumento } from "@/lib/documentos/almacen";
 import { CODIGOS_CATEGORIA } from "./categorias";
 
 export class ErrorGasto extends Error {}
@@ -29,6 +30,8 @@ export const borradorGasto = z.object({
   vencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   metodoPago: z.string().trim().optional(),
   notas: z.string().trim().optional(),
+  /** Justificante ya subido y leído que se asigna a este gasto. */
+  documentoId: z.string().uuid().optional(),
   /** El usuario ha visto los posibles duplicados y quiere guardarlo igualmente. */
   confirmarPosibleDuplicado: z.boolean().default(false),
 });
@@ -112,6 +115,7 @@ export async function registrarGasto(sql: Sql, ctx: Contexto, entrada: BorradorG
       await tx`INSERT INTO desglose_gasto (empresa_id, gasto_id, tipo_iva, base_cent, cuota_cent, deducible_pct, cuota_deducible_cent)
         VALUES (${ctx.empresaId}, ${g.id}, ${l.tipoIva}, ${l.baseCent}, ${l.cuotaCent}, ${l.deduciblePct}, ${l.cuotaDeducibleCent})`;
     }
+    if (b.documentoId) await asignarBorrador(tx, ctx, b.documentoId, g.id);
     await tx`INSERT INTO eventos_auditoria (empresa_id, usuario_id, accion, entidad, entidad_id, despues)
       VALUES (${ctx.empresaId}, ${ctx.usuarioId ?? null}, 'registrar_gasto', 'gasto', ${g.id},
         ${tx.json({ numero: b.numero ?? null, totalCent: t.totalCent, categoria: b.categoria, posibleDuplicadoConfirmado: b.confirmarPosibleDuplicado })})`;
@@ -141,6 +145,13 @@ export async function restaurarGasto(sql: Sql, ctx: Contexto, gastoId: string) {
       const r = await tx`UPDATE gastos SET borrado_en = NULL, borrado_por = NULL, motivo_borrado = NULL, actualizado_en = now()
         WHERE id = ${gastoId} AND borrado_en IS NOT NULL RETURNING id`;
       if (!r.length) throw new ErrorGasto("El gasto no está en la papelera");
+      const docs = await tx<{ sha256: string }[]>`SELECT sha256 FROM documentos WHERE entidad = 'gasto' AND entidad_id = ${gastoId} AND borrado_en IS NULL`;
+      for (const d of docs) {
+        try { await comprobarNoRepetido(tx, d.sha256, gastoId); } catch (e) {
+          if (e instanceof ErrorDocumento) throw new ErrorGasto(`No se puede restaurar: ${e.message.charAt(0).toLowerCase()}${e.message.slice(1)}`);
+          throw e;
+        }
+      }
     } catch (e) {
       if (e instanceof Error && /gastos_sin_duplicados/.test(e.message)) throw new ErrorGasto("Ya hay otro gasto activo con el mismo proveedor y número");
       throw e;
