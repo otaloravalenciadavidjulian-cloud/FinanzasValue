@@ -69,3 +69,8 @@ label input,label select,label textarea{width:100%;box-sizing:border-box;min-wid
 .btn.secundario{background:transparent;color:var(--accent);border:1px solid var(--line)}
 .lineas-factura{table-layout:fixed}.lineas-factura input,.lineas-factura select{width:100%;min-width:0;box-sizing:border-box}
 .totales-factura{width:auto!important;min-width:300px;margin-left:auto;border-collapse:collapse}.totales-factura td{padding:4px 0}.totales-factura td:last-child{text-align:right;padding-left:24px;font-variant-numeric:tabular-nums}.totales-factura tr.total td{border-top:1px solid currentColor;padding-top:8px;font-weight:600;font-size:1.05em}
+.campo-contrasena{position:relative;display:block}
+.campo-contrasena input{width:100%;padding-right:44px!important;box-sizing:border-box}
+.campo-contrasena .ojo{position:absolute;top:50%;right:6px;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;padding:0}
+.campo-contrasena .ojo:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.campo-contrasena .ojo:focus-visible{outline:2px solid var(--accent);outline-offset:1px}

@@ -1,6 +1,7 @@
 "use client";
 import { useActionState } from "react";
 import { configurar } from "./acciones";
+import { CampoContrasena } from "@/app/campo-contrasena";
 
 export function Formulario() {
   const [estado, accion, enviando] = useActionState(configurar, {});
@@ -10,7 +11,7 @@ export function Formulario() {
       <h1>Configuración inicial</h1>
       <p className="muted">Crea tu empresa y tu usuario administrador. Solo se puede hacer una vez.</p>
       {estado.error && <div className="error">{estado.error}</div>}
-      <label>Código de configuración (variable SETUP_TOKEN de Netlify)<input name="token" type="password" required /></label>
+      <label>Código de configuración (variable SETUP_TOKEN de Netlify)<CampoContrasena name="token" required /></label>
       <div className="grid">
         <label>Razón social<input name="razon" defaultValue={v("razon")} required /></label>
         <label>CIF/NIF<input name="nif" defaultValue={v("nif")} required /></label>
@@ -22,7 +23,7 @@ export function Formulario() {
       <div className="grid">
         <label>Tu nombre<input name="nombre" defaultValue={v("nombre")} required /></label>
         <label>Email<input name="email" defaultValue={v("email")} type="email" required autoComplete="username" /></label>
-        <label>Contraseña (mínimo 12 caracteres)<input name="contrasena" type="password" minLength={12} required autoComplete="new-password" /></label>
+        <label>Contraseña (mínimo 12 caracteres)<CampoContrasena name="contrasena" minLength={12} required autoComplete="new-password" /></label>
       </div>
       <div><button className="btn" disabled={enviando}>{enviando ? "Creando…" : "Crear empresa y entrar"}</button></div>
     </form>

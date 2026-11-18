@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { apagarDobleFactor, confirmarDobleFactor, nuevaContrasena } from "./acciones";
+import { CampoContrasena } from "@/app/campo-contrasena";
 
 export function CambioContrasena() {
   const [e, accion, enviando] = useActionState(nuevaContrasena, {});
@@ -9,9 +10,9 @@ export function CambioContrasena() {
     <form action={accion} style={{ display: "grid", gap: 10, maxWidth: 420 }}>
       {e.error && <div className="error">{e.error}</div>}
       {e.ok && <div className="aviso">{e.ok}</div>}
-      <label>Contraseña actual<input type="password" name="actual" autoComplete="current-password" required /></label>
-      <label>Nueva contraseña (al menos 12 caracteres)<input type="password" name="nueva" autoComplete="new-password" minLength={12} required /></label>
-      <label>Repite la nueva<input type="password" name="repetir" autoComplete="new-password" minLength={12} required /></label>
+      <label>Contraseña actual<CampoContrasena name="actual" autoComplete="current-password" required /></label>
+      <label>Nueva contraseña (al menos 12 caracteres)<CampoContrasena name="nueva" autoComplete="new-password" minLength={12} required /></label>
+      <label>Repite la nueva<CampoContrasena name="repetir" autoComplete="new-password" minLength={12} required /></label>
       <div><button className="btn" disabled={enviando}>{enviando ? "Guardando…" : "Cambiar contraseña"}</button></div>
     </form>
   );
@@ -48,7 +49,7 @@ export function DesactivarDobleFactor() {
   const [e, accion, enviando] = useActionState(apagarDobleFactor, {});
   return (
     <form action={accion} style={{ display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
-      <label>Tu contraseña<input type="password" name="contrasena" autoComplete="current-password" required /></label>
+      <label>Tu contraseña<CampoContrasena name="contrasena" autoComplete="current-password" required /></label>
       <button className="btn btn-sec" disabled={enviando}>Desactivar doble factor</button>
       {e.error && <div className="error">{e.error}</div>}
     </form>
