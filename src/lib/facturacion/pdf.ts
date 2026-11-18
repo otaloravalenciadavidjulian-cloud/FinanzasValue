@@ -3,6 +3,7 @@ import { causaIva } from "@/lib/fiscal/exenciones";
 import QRCode from "qrcode";
 import { formatearEuros } from "../fiscal/dinero";
 import { LEYENDA_VERIFACTU } from "../verifactu/qr";
+import { LOGO_VALUE_PNG } from "../marca/logo";
 
 /**
  * Factura en PDF con los datos que exige el art. 6 del RD 1619/2012 y, al inicio,
@@ -127,12 +128,13 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
     escribir(pagina, l, xQR - 10, y - 30 - ladoQR - i * 7.5, { tam: 6, color: GRIS });
   }
 
-  // Emisor, con su logotipo encima si lo tiene (como máximo 160 × 48 puntos)
+  // Emisor, con su logotipo encima (como máximo 160 × 48 puntos); sin logotipo propio, el de Value.
   const e = d.emisor;
+  const logo = e.logo ?? { bytes: LOGO_VALUE_PNG, mime: "image/png" };
   let yLogo = y;
-  if (e.logo) {
+  {
     try {
-      const img = e.logo.mime === "image/png" ? await pdf.embedPng(e.logo.bytes) : await pdf.embedJpg(e.logo.bytes);
+      const img = logo.mime === "image/png" ? await pdf.embedPng(logo.bytes) : await pdf.embedJpg(logo.bytes);
       const escala = Math.min(160 / img.width, 48 / img.height, 1);
       pagina.drawImage(img, { x: MARGEN, y: y - img.height * escala, width: img.width * escala, height: img.height * escala });
       yLogo = y - img.height * escala - 8;
