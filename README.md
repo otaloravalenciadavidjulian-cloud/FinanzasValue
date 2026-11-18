@@ -138,6 +138,7 @@ npm run dev
 2. En Netlify, importa este repositorio de GitHub. `netlify.toml` ya define la compilación.
 3. En Netlify, en *Site configuration → Environment variables*, crea:
    - `DATABASE_OWNER_URL`: la cadena de Neon. Solo se usa para aplicar las migraciones al compilar.
+     Se acepta tal cual la copia Neon (con `psql` o comillas delante y con `channel_binding`).
    - `APP_DB_PASSWORD`: 24 caracteres aleatorios o más. Crea el rol `value_app`, con el que trabaja la aplicación.
    - `SETUP_TOKEN`: 16 caracteres aleatorios o más, para la configuración inicial.
    - `VERIFACTU_ENTORNO`: `pruebas`.

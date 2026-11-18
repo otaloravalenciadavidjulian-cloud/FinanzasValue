@@ -1,10 +1,12 @@
 import postgres from "postgres";
 import { altaEmpresa } from "../src/lib/empresas/alta";
+import { limpiarUrl } from "../src/db/cliente";
 
 /** Solo para desarrollo local: crea una empresa de demostración con un administrador y dos clientes. */
 async function main() {
-  const url = process.env.DATABASE_OWNER_URL ?? process.env.DATABASE_URL;
-  if (!url) throw new Error("Falta DATABASE_URL");
+  const bruta = process.env.DATABASE_OWNER_URL ?? process.env.DATABASE_URL;
+  if (!bruta) throw new Error("Falta DATABASE_URL");
+  const url = limpiarUrl(bruta);
   if (process.env.NETLIFY) throw new Error("El seed de demostración no se ejecuta en Netlify");
   const sql = postgres(url, { max: 1, onnotice: () => {} });
   const email = "demo@value.local", contrasena = "demo-value-2026";

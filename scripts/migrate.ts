@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { limpiarUrl } from "../src/db/cliente";
 
 /**
  * Aplica en orden las migraciones SQL pendientes con el rol propietario de la base.
@@ -8,11 +9,12 @@ import path from "node:path";
  * de lectura y escritura: es el rol con el que se conecta la aplicación.
  */
 async function main() {
-  const url = process.env.DATABASE_OWNER_URL ?? process.env.DATABASE_URL;
-  if (!url) {
+  const bruta = process.env.DATABASE_OWNER_URL ?? process.env.DATABASE_URL;
+  if (!bruta) {
     if (process.env.NETLIFY) throw new Error("Falta DATABASE_OWNER_URL en las variables de entorno de Netlify");
     throw new Error("Falta DATABASE_OWNER_URL o DATABASE_URL");
   }
+  const url = limpiarUrl(bruta);
   const sql = postgres(url, { max: 1, onnotice: () => {}, prepare: !new URL(url).hostname.includes("-pooler") });
   await sql`CREATE TABLE IF NOT EXISTS migraciones (nombre text PRIMARY KEY, aplicada_en timestamptz NOT NULL DEFAULT now())`;
   const dir = path.join(process.cwd(), "db", "migrations");
