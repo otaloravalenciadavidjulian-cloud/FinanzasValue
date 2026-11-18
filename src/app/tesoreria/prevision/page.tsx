@@ -37,7 +37,9 @@ export default async function PrevisionTesoreria() {
           {p.recurrenteMensualCent > 0
             ? ` Los pagos recurrentes sin factura (nóminas, Seguridad Social, préstamos, impuestos) se estiman en ${formatearEuros(p.recurrenteMensualCent)} al mes, la media de los últimos 90 días conciliados.`
             : " Los pagos recurrentes sin factura (nóminas, Seguridad Social, préstamos, impuestos) se estimarán cuando concilies movimientos de esos tipos."}
-          {" "}Los impuestos trimestrales (303, 111…) se añadirán a la previsión en la fase 4.
+          {p.impuestos.length > 0
+            ? ` Incluye los impuestos estimados con lo registrado hasta hoy: ${p.impuestos.map((i) => `${i.concepto} ${formatearEuros(i.importeCent)} el ${fecha(i.fecha)}`).join("; ")}.`
+            : " No hay impuestos trimestrales a pagar dentro de estas 13 semanas según lo registrado."}
         </p>
       </div>
     </>

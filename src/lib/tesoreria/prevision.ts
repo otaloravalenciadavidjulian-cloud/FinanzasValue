@@ -1,4 +1,6 @@
 import type { Tx } from "@/db/cliente";
+import { calcular303, calcularRetenciones } from "@/lib/impuestos/modelos";
+import { plazoTrimestral, trimestreDe, type Trimestre } from "@/lib/impuestos/periodos";
 
 /**
  * Previsión de tesorería por semanas: parte del saldo en bancos y suma los cobros pendientes y resta
@@ -7,7 +9,7 @@ import type { Tx } from "@/db/cliente";
  * Seguridad Social, préstamos, impuestos) se estiman con la media de los últimos 90 días conciliados.
  */
 
-export interface Vencimiento { fecha: string; importeCent: number; vencido: boolean }
+export interface Vencimiento { fecha: string; importeCent: number; vencido: boolean; concepto?: string }
 
 export interface Semana {
   desde: string;
@@ -25,6 +27,8 @@ export interface Prevision {
   pagosVencidosCent: number;
   recurrenteMensualCent: number;
   /** Primera semana en que el saldo previsto queda por debajo de cero. */
+  /** Impuestos trimestrales estimados que vencen dentro del horizonte (incluidos en los pagos). */
+  impuestos: Vencimiento[];
   primeraSemanaNegativa: Semana | null;
   saldoMinimoCent: number;
 }
@@ -32,7 +36,8 @@ export interface Prevision {
 const sumarDias = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 /** Cálculo puro, sin base de datos. */
-export function calcularPrevision(p: { hoy: string; saldoInicialCent: number; cobros: Vencimiento[]; pagos: Vencimiento[]; recurrenteMensualCent: number; semanas?: number }): Prevision {
+export function calcularPrevision(p: { hoy: string; saldoInicialCent: number; cobros: Vencimiento[]; pagos: Vencimiento[]; recurrenteMensualCent: number; semanas?: number; impuestos?: Vencimiento[] }): Prevision {
+  const pagosTodos = [...p.pagos, ...(p.impuestos ?? [])];
   const n = p.semanas ?? 13;
   const semanal = Math.round((p.recurrenteMensualCent * 12) / 52);
   let saldo = p.saldoInicialCent;
@@ -42,7 +47,7 @@ export function calcularPrevision(p: { hoy: string; saldoInicialCent: number; co
     // Lo vencido entra en la primera semana.
     const dentro = (v: Vencimiento) => (i === 0 ? v.fecha <= hasta : v.fecha >= desde && v.fecha <= hasta);
     const cobrosCent = p.cobros.filter(dentro).reduce((s, v) => s + v.importeCent, 0);
-    const pagosCent = p.pagos.filter(dentro).reduce((s, v) => s + v.importeCent, 0);
+    const pagosCent = pagosTodos.filter(dentro).reduce((s, v) => s + v.importeCent, 0);
     saldo += cobrosCent - pagosCent - semanal;
     semanas.push({ desde, hasta, cobrosCent, pagosCent, recurrentesCent: semanal, saldoFinalCent: saldo });
   }
@@ -53,6 +58,7 @@ export function calcularPrevision(p: { hoy: string; saldoInicialCent: number; co
     cobrosVencidosCent: vencido(p.cobros),
     pagosVencidosCent: vencido(p.pagos),
     recurrenteMensualCent: p.recurrenteMensualCent,
+    impuestos: p.impuestos ?? [],
     primeraSemanaNegativa: semanas.find((s) => s.saldoFinalCent < 0) ?? null,
     saldoMinimoCent: Math.min(p.saldoInicialCent, ...semanas.map((s) => s.saldoFinalCent)),
   };
@@ -83,5 +89,32 @@ export async function cargarPrevision(tx: Tx, hoy: string, semanas = 13): Promis
   const aVenc = (filas: { fecha: string; pendiente: string }[]) => filas
     .map((f) => ({ fecha: f.fecha, importeCent: Number(f.pendiente), vencido: f.fecha < hoy }))
     .filter((v) => v.importeCent > 0);
-  return calcularPrevision({ hoy, saldoInicialCent: Number(saldo), cobros: aVenc(cobros), pagos: aVenc(pagos), recurrenteMensualCent: Math.round(Number(recurrente)), semanas });
+  return calcularPrevision({ hoy, saldoInicialCent: Number(saldo), cobros: aVenc(cobros), pagos: aVenc(pagos), recurrenteMensualCent: Math.round(Number(recurrente)), semanas,
+    impuestos: await impuestosPrevistos(tx, hoy, sumarDias(hoy, semanas * 7 - 1)) });
+}
+
+/**
+ * Pagos de los modelos 303, 111 y 115 cuyo plazo termina dentro del horizonte, con lo registrado
+ * hasta hoy (el trimestre en curso aún puede cambiar). Un 303 a compensar no se cuenta como cobro.
+ */
+async function impuestosPrevistos(tx: Tx, hoy: string, fin: string): Promise<Vencimiento[]> {
+  const out: Vencimiento[] = [];
+  let { ejercicio, trimestre } = trimestreDe(hoy);
+  // Trimestre anterior (su plazo puede estar abierto) y los siguientes mientras el plazo caiga en el horizonte.
+  if (trimestre === 1) { ejercicio -= 1; trimestre = 4; } else trimestre = (trimestre - 1) as Trimestre;
+  for (let i = 0; i < 4; i++) {
+    const plazo = plazoTrimestral(ejercicio, trimestre);
+    if (plazo.hasta > fin) break;
+    if (plazo.hasta >= hoy) {
+      const etiqueta = `${trimestre}T ${ejercicio}`;
+      const iva = await calcular303(tx, ejercicio, trimestre);
+      if (iva.resultadoCent > 0) out.push({ fecha: plazo.hasta, importeCent: iva.resultadoCent, vencido: false, concepto: `IVA (303) ${etiqueta}` });
+      for (const modelo of ["111", "115"] as const) {
+        const r = await calcularRetenciones(tx, modelo, ejercicio, trimestre);
+        if (r.retencionesCent > 0) out.push({ fecha: plazo.hasta, importeCent: r.retencionesCent, vencido: false, concepto: `Retenciones (${modelo}) ${etiqueta}` });
+      }
+    }
+    if (trimestre === 4) { ejercicio += 1; trimestre = 1; } else trimestre = (trimestre + 1) as Trimestre;
+  }
+  return out;
 }
