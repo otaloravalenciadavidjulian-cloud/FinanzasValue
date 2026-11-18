@@ -1,6 +1,6 @@
 "use client";
 import { useActionState } from "react";
-import { guardarDatos, subirLogotipo } from "./acciones";
+import { borrarPruebas, guardarDatos, subirLogotipo } from "./acciones";
 
 type Datos = Record<string, string | null>;
 const Estado = ({ e }: { e: { error?: string; ok?: string } }) => (e.error ? <div className="error">{e.error}</div> : e.ok ? <div className="aviso">{e.ok}</div> : null);
@@ -63,6 +63,24 @@ export function FormularioLogotipo({ tiene, version }: { tiene: boolean; version
         <button className="btn" disabled={enviando}>{enviando ? "Subiendo…" : "Guardar logotipo"}</button>
         {tiene && <button className="btn btn-sec" name="quitar" value="1" disabled={enviando}>Quitar</button>}
       </div>
+    </form>
+  );
+}
+
+export function BorrarFacturasPrueba({ facturas }: { facturas: number }) {
+  const [e, accion, enviando] = useActionState(borrarPruebas, {});
+  return (
+    <form action={accion} className="panel" style={{ display: "grid", gap: 10 }}>
+      <b>Facturas de prueba</b>
+      <Estado e={e} />
+      <p className="muted" style={{ margin: 0 }}>
+        Value está en el entorno de pruebas de VERI*FACTU: nada se ha enviado a la AEAT. Antes de empezar a facturar de verdad puedes
+        borrar {facturas === 1 ? "la factura emitida" : `las ${facturas} facturas emitidas`} (con sus cobros y registros) para que la numeración
+        empiece en 1. Clientes, gastos y el resto de datos no se tocan. No se puede deshacer.
+      </p>
+      <label>Escribe BORRAR para confirmar<input name="confirmacion" autoComplete="off" required /></label>
+      <div><button className="btn" style={{ background: "var(--bad)" }} disabled={enviando || facturas === 0}>
+        {enviando ? "Borrando…" : "Borrar facturas de prueba"}</button></div>
     </form>
   );
 }

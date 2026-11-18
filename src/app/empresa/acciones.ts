@@ -1,7 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db/cliente";
-import { requerirSesion, ROLES_EMPRESA_EDICION } from "@/lib/auth/sesion";
+import { requerirSesion, ROLES_ADMINISTRACION, ROLES_EMPRESA_EDICION } from "@/lib/auth/sesion";
+import { borrarFacturasDePrueba, ErrorBorradoPruebas } from "@/lib/facturacion/pruebas";
 import { ErrorDocumento } from "@/lib/documentos/almacen";
 import { cambiarLogotipo, editarEmpresa, ErrorEmpresa } from "@/lib/empresas/datos";
 
@@ -41,4 +42,17 @@ export async function subirLogotipo(_p: Estado, f: FormData): Promise<Estado> {
     await cambiarLogotipo(db(), s, { nombre: archivo.name, bytes: new Uint8Array(await archivo.arrayBuffer()) });
     return "Logotipo guardado. Aparecerá en las facturas que emitas a partir de ahora.";
   });
+}
+
+export async function borrarPruebas(_p: Estado, f: FormData): Promise<Estado> {
+  const s = await requerirSesion(ROLES_ADMINISTRACION);
+  if (String(f.get("confirmacion") ?? "").trim().toUpperCase() !== "BORRAR") return { error: "Escribe BORRAR para confirmar." };
+  try {
+    const r = await borrarFacturasDePrueba(db(), s);
+    revalidatePath("/", "layout");
+    return { ok: r.facturas ? `Borradas ${r.facturas} factura${r.facturas === 1 ? "" : "s"} de prueba. La numeración vuelve a empezar en 1.` : "No había facturas que borrar." };
+  } catch (e) {
+    if (e instanceof ErrorBorradoPruebas) return { error: e.message };
+    throw e;
+  }
 }

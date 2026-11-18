@@ -43,9 +43,14 @@ async function main() {
       GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO value_app;
       GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO value_app;
       REVOKE ALL ON migraciones FROM value_app;
+      REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON entorno_sistema FROM value_app;
       ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO value_app;
       ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO value_app;`);
     console.log("Rol value_app listo");
+  }
+  // El entorno de VERI*FACTU queda también en la base: en producción ya no se pueden borrar facturas de prueba.
+  if (process.env.VERIFACTU_ENTORNO === "produccion") {
+    await sql`UPDATE entorno_sistema SET entorno = 'produccion', cambiado_en = now() WHERE entorno <> 'produccion'`;
   }
   await sql.end();
 }
