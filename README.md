@@ -26,6 +26,9 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
   al entrar, cambiar el rol, quitar o devolver el acceso, nueva contraseña y quitar el doble factor a
   quien pierda el móvil. Nunca se queda la empresa sin administrador y todo queda en la auditoría.
 - **Configuración inicial** en `/configuracion-inicial`, protegida con `SETUP_TOKEN` y de un solo uso.
+- **Empresa** (`/empresa`): domicilio, contacto, IBAN, datos registrales y logotipo (PNG o JPG) que
+  aparecen en las facturas. Cada cambio se guarda en un historial, así que las facturas ya emitidas se
+  siguen mostrando con los datos y el logotipo que tenían. La razón social y el NIF no se cambian.
 - **Clientes**: alta con validación de NIF/CIF.
 - **Factura en PDF** (`/facturas/<id>/pdf`) con los datos del art. 6 del RD 1619/2012 y, al inicio,
   el QR tributario con la leyenda VERI*FACTU. En el entorno de pruebas lleva un aviso de que no tiene
@@ -100,7 +103,7 @@ Importe total del registro: en VERI*FACTU es base más cuotas; la retención de 
 (sí en el total a pagar del PDF).
 
 Pendiente dentro de la fase 1: envío SOAP a la AEAT con el
-certificado de la empresa, logotipo en el PDF y la declaración responsable del sistema.
+certificado de la empresa y la declaración responsable del sistema.
 
 ## Normativa: fechas a 17/11/2026
 

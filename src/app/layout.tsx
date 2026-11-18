@@ -22,6 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <b>Value</b>
               <nav>
                 {menu.map(([href, txt]) => <Link key={href} href={href}>{txt}</Link>)}
+                {s.rol !== "empleado" && <Link href="/empresa">Empresa</Link>}
                 {s.rol === "administrador" && <Link href="/usuarios">Usuarios</Link>}
                 <Link href="/cuenta">Mi cuenta</Link>
               </nav>

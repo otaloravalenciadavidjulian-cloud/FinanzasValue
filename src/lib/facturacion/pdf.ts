@@ -13,6 +13,8 @@ export interface DatosFacturaPDF {
   emisor: {
     razonSocial: string; nombreComercial?: string | null; nif: string; domicilio: string; codigoPostal: string;
     municipio: string; provincia: string; email?: string | null; telefono?: string | null; datosRegistrales?: string | null; iban?: string | null;
+    /** PNG o JPG. */
+    logo?: { bytes: Uint8Array; mime: string } | null;
   };
   destinatario: {
     razonSocial: string; nif: string; direccion?: string | null; codigoPostal?: string | null;
@@ -125,10 +127,19 @@ export async function generarFacturaPDF(d: DatosFacturaPDF): Promise<Uint8Array>
     escribir(pagina, l, xQR - 10, y - 30 - ladoQR - i * 7.5, { tam: 6, color: GRIS });
   }
 
-  // Emisor
+  // Emisor, con su logotipo encima si lo tiene (como máximo 160 × 48 puntos)
   const e = d.emisor;
-  escribir(pagina, e.razonSocial, MARGEN, y - 10, { tam: 15, fuente: negrita });
-  let ye = y - 26;
+  let yLogo = y;
+  if (e.logo) {
+    try {
+      const img = e.logo.mime === "image/png" ? await pdf.embedPng(e.logo.bytes) : await pdf.embedJpg(e.logo.bytes);
+      const escala = Math.min(160 / img.width, 48 / img.height, 1);
+      pagina.drawImage(img, { x: MARGEN, y: y - img.height * escala, width: img.width * escala, height: img.height * escala });
+      yLogo = y - img.height * escala - 8;
+    } catch { /* Un logotipo dañado no impide generar la factura. */ }
+  }
+  escribir(pagina, e.razonSocial, MARGEN, yLogo - 10, { tam: 15, fuente: negrita });
+  let ye = yLogo - 26;
   const datosEmisor = [
     e.nombreComercial && e.nombreComercial !== e.razonSocial ? e.nombreComercial : null,
     `NIF ${e.nif}`,

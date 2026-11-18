@@ -135,3 +135,5 @@ export const ROLES_GASTOS: Rol[] = ["administrador", "direccion", "contable", "e
 export const ROLES_CONTABILIDAD: Rol[] = ["administrador", "direccion", "contable", "gestoria"];
 /** Gestión de usuarios de la empresa. */
 export const ROLES_ADMINISTRACION: Rol[] = ["administrador"];
+/** Datos de la empresa y logotipo. */
+export const ROLES_EMPRESA_EDICION: Rol[] = ["administrador", "direccion"];
