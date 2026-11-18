@@ -92,12 +92,15 @@ Este repositorio contiene la **fase 1**: la base técnica y el núcleo de factur
 - **Dashboard** con facturación y gastos del mes, saldo en bancos, previsión, cobros y pagos vencidos,
   movimientos por conciliar y gastos sin justificante.
 
+- **Operaciones sin IVA**: cada línea al 0 % indica su causa (exenta E1–E6, no sujeta N1/N2 o inversión
+  del sujeto pasivo S2). La factura lleva la mención legal, el registro VERI*FACTU la califica como pide la
+  AEAT, la Facturae la incluye como literal legal y el 303 las lleva a las casillas 59, 60, 120 y 122.
+
 Importe total del registro: en VERI*FACTU es base más cuotas; la retención de IRPF no se descuenta
-(sí en el total a pagar del PDF). Las líneas al 0 % todavía no generan XML porque hay que indicar la
-causa de exención o no sujeción.
+(sí en el total a pagar del PDF).
 
 Pendiente dentro de la fase 1: envío SOAP a la AEAT con el
-certificado de la empresa, logotipo en el PDF, causas de exención y la declaración responsable del sistema.
+certificado de la empresa, logotipo en el PDF y la declaración responsable del sistema.
 
 ## Normativa: fechas a 17/11/2026
 

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { causaIva } from "@/lib/fiscal/exenciones";
 import { db, enEmpresa } from "@/db/cliente";
 import { requerirSesion, ROLES_FACTURACION } from "@/lib/auth/sesion";
 import { ETIQUETA_COBRO, estadoCobro, hoyMadrid } from "@/lib/cobros/estado";
@@ -20,7 +21,7 @@ export default async function Factura({ params }: { params: Promise<{ id: string
       FROM facturas f JOIN empresas e ON e.id = f.empresa_id WHERE f.id = ${id}`;
     if (!f) return null;
     const lineas = await tx`SELECT * FROM lineas_factura WHERE factura_id = ${id} ORDER BY orden`;
-    const desglose = await tx`SELECT * FROM desglose_iva WHERE factura_id = ${id} ORDER BY tipo_iva DESC`;
+    const desglose = await tx`SELECT * FROM desglose_iva WHERE factura_id = ${id} ORDER BY tipo_iva DESC, causa_iva`;
     const registros = await tx`SELECT tipo, secuencia, huella, huella_anterior, fecha_hora_huso FROM registros_facturacion WHERE factura_id = ${id} ORDER BY secuencia`;
     const cobros = await tx`SELECT id, to_char(fecha,'DD/MM/YYYY') AS fecha, importe_cent, metodo, notas FROM cobros WHERE factura_id = ${id} ORDER BY fecha, creado_en`;
     return { f, lineas, desglose, registros, cobros };
@@ -53,10 +54,11 @@ export default async function Factura({ params }: { params: Promise<{ id: string
         <p><b>{f.emisor}</b> · NIF {f.nif_emisor}<br />Cliente: {f.destinatario?.razon_social ?? "—"} · NIF {f.destinatario?.nif ?? "—"}</p>
         <table>
           <thead><tr><th>Concepto</th><th className="num">Cantidad</th><th className="num">Precio</th><th className="num">IVA</th><th className="num">Base</th></tr></thead>
-          <tbody>{lineas.map((l) => <tr key={l.id}><td>{l.concepto}</td><td className="num">{Number(l.cantidad)}</td><td className="num">{formatearEuros(Number(l.precio_unitario_cent))}</td><td className="num">{Number(l.tipo_iva)} %</td><td className="num">{formatearEuros(Number(l.base_cent))}</td></tr>)}</tbody>
+          <tbody>{lineas.map((l) => <tr key={l.id}><td>{l.concepto}</td><td className="num">{Number(l.cantidad)}</td><td className="num">{formatearEuros(Number(l.precio_unitario_cent))}</td><td className="num" title={causaIva(l.causa_iva)?.nombre}>{l.causa_iva ? `0 % (${l.causa_iva})` : `${Number(l.tipo_iva)} %`}</td><td className="num">{formatearEuros(Number(l.base_cent))}</td></tr>)}</tbody>
         </table>
         <p className="num">
-          {desglose.map((d) => <span key={d.tipo_iva}>Base {Number(d.tipo_iva)} %: {formatearEuros(Number(d.base_cent))} · IVA: {formatearEuros(Number(d.cuota_cent))}<br /></span>)}
+          {desglose.map((d) => <span key={`${d.tipo_iva}-${d.causa_iva ?? ""}`}>
+            {d.causa_iva ? `Base sin IVA (${causaIva(d.causa_iva)?.nombre ?? d.causa_iva})` : `Base ${Number(d.tipo_iva)} %`}: {formatearEuros(Number(d.base_cent))} · IVA: {formatearEuros(Number(d.cuota_cent))}<br /></span>)}
           {Number(f.retencion_cent) ? <>Retención IRPF: −{formatearEuros(Number(f.retencion_cent))}<br /></> : null}
           <b>Total: {formatearEuros(Number(f.total_cent))}</b>
         </p>

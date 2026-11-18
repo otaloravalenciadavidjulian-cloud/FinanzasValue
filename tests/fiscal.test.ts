@@ -60,3 +60,22 @@ describe("NIF", () => {
     ["", false], ["ABC", false],
   ])("%s → %s", (nif, ok) => expect(validarNif(nif)).toBe(ok));
 });
+
+describe("líneas sin IVA", () => {
+  it("exigen causa y se agrupan por ella", async () => {
+    const { calcularTotales } = await import("@/lib/fiscal/totales");
+    expect(() => calcularTotales([{ concepto: "x", cantidad: 1, precioUnitarioCent: 100, tipoIva: 0 }])).toThrow(/sin IVA/);
+    expect(() => calcularTotales([{ concepto: "x", cantidad: 1, precioUnitarioCent: 100, tipoIva: 21, causaIva: "E1" }])).toThrow(/0 %/);
+    const t = calcularTotales([
+      { concepto: "a", cantidad: 1, precioUnitarioCent: 100, tipoIva: 0, causaIva: "E5" },
+      { concepto: "b", cantidad: 1, precioUnitarioCent: 200, tipoIva: 0, causaIva: "N2" },
+      { concepto: "c", cantidad: 1, precioUnitarioCent: 300, tipoIva: 0, causaIva: "E5" },
+      { concepto: "d", cantidad: 1, precioUnitarioCent: 1000, tipoIva: 21 },
+    ]);
+    expect(t.desglose).toEqual([
+      { tipoIva: 21, baseCent: 1000, cuotaCent: 210 },
+      { tipoIva: 0, causaIva: "E5", baseCent: 400, cuotaCent: 0 },
+      { tipoIva: 0, causaIva: "N2", baseCent: 200, cuotaCent: 0 },
+    ]);
+  });
+});

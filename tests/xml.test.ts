@@ -73,6 +73,21 @@ describe("XML de registros VERI*FACTU", () => {
     expect(() => documentoXML(emisor, [r])).toThrow(/exención/);
   });
 
+  it("declara exentas, no sujetas e inversión del sujeto pasivo según su causa", () => {
+    const r = alta(null, {
+      desglose: [{ tipoIva: 21, baseCent: 1000, cuotaCent: 210 }, { tipoIva: 0, causaIva: "E2", baseCent: 2000, cuotaCent: 0 },
+        { tipoIva: 0, causaIva: "E5", baseCent: 3000, cuotaCent: 0 }, { tipoIva: 0, causaIva: "N2", baseCent: 4000, cuotaCent: 0 },
+        { tipoIva: 0, causaIva: "S2", baseCent: 5000, cuotaCent: 0 }],
+      cuotaTotalCent: 210, importeTotalCent: 15210,
+    });
+    const xml = documentoXML(emisor, [r]);
+    expect(xml).toContain("<sf:ClaveRegimen>02</sf:ClaveRegimen><sf:OperacionExenta>E2</sf:OperacionExenta><sf:BaseImponibleOimporteNoSujeto>20.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(xml).toContain("<sf:OperacionExenta>E5</sf:OperacionExenta>");
+    expect(xml).toContain("<sf:CalificacionOperacion>N2</sf:CalificacionOperacion><sf:BaseImponibleOimporteNoSujeto>40.00</sf:BaseImponibleOimporteNoSujeto>");
+    expect(xml).toContain("<sf:CalificacionOperacion>S2</sf:CalificacionOperacion><sf:TipoImpositivo>0.00</sf:TipoImpositivo>");
+    if (hayXmllint) expect(validarContraXSD(xml)).toBeNull();
+  });
+
   it("exige destinatario en facturas completas", () => {
     expect(() => documentoXML(emisor, [alta(null, { destinatario: null })])).toThrow(/destinatario/);
   });

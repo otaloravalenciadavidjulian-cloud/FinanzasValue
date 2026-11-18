@@ -53,6 +53,22 @@ d("borradores de impuestos en PostgreSQL", () => {
     expect(m.avisos.some((a) => /sin factura|justificante/.test(a))).toBe(true);
   });
 
+  it("303: ventas sin IVA en sus casillas informativas según la causa", async () => {
+    await emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cli, fechaExpedicion: "2026-08-03", lineas: [
+      { concepto: "Venta UE", cantidad: 1, precioUnitarioCent: 70000, tipoIva: 0, causaIva: "E5" },
+      { concepto: "Exportación", cantidad: 1, precioUnitarioCent: 30000, tipoIva: 0, causaIva: "E2" },
+      { concepto: "Servicio fuera de la UE", cantidad: 1, precioUnitarioCent: 20000, tipoIva: 0, causaIva: "N2" },
+      { concepto: "Formación exenta", cantidad: 1, precioUnitarioCent: 10000, tipoIva: 0, causaIva: "E1" },
+      { concepto: "Normal", cantidad: 1, precioUnitarioCent: 10000, tipoIva: 21 }] });
+    await expect(emitirFactura(sql, ctx(), { serieCodigo: "A", clienteId: cli, fechaExpedicion: "2026-08-04", lineas: [
+      { concepto: "Sin causa", cantidad: 1, precioUnitarioCent: 100, tipoIva: 0 }] })).rejects.toThrow(/0 %/);
+    const m = await enEmpresa(sql, emp, (tx) => calcular303(tx, 2026, 3));
+    expect(m.devengado.map((l) => l.tipo)).toEqual([21]);
+    const c = Object.fromEntries(casillas303(m).map((x) => [x.casilla, x.importeCent]));
+    expect(c).toMatchObject({ "07": 10000, "59": 70000, "60": 30000, "120": 20000 });
+    expect(m.avisos.some((a) => /390/.test(a))).toBe(true);
+  });
+
   it("111 y 115: retenciones de profesionales y de alquileres por separado", async () => {
     await gasto({ categoria: "profesionales", retencionPct: 15 });
     await gasto({ categoria: "profesionales", retencionPct: 15, proveedorId: prov });
