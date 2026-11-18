@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
-import { guardarGasto } from "../acciones";
+import { guardarGasto, type EstadoGasto } from "../acciones";
 import { leerArchivo, type ResultadoLectura } from "../justificantes";
 import { conArchivoPreparado } from "../reducir-imagen";
 
@@ -57,9 +57,17 @@ function LectorJustificante({ iaActiva, lectura, onLectura }: { iaActiva: boolea
   );
 }
 
-function FormularioGasto({ proveedores, categorias, hoy, puedeAltaProveedor, lectura }: Props & { lectura: ResultadoLectura | null }) {
-  const [estado, accion, enviando] = useActionState(guardarGasto, {});
-  const v = (k: string, d = "") => estado.valores?.[k] ?? lectura?.valores?.[k] ?? d;
+interface PropsFormulario extends Omit<Props, "iaActiva"> {
+  lectura?: ResultadoLectura | null;
+  /** Para editar: acción de guardado y valores actuales del gasto. */
+  guardar?: (p: EstadoGasto, f: FormData) => Promise<EstadoGasto>;
+  inicial?: Record<string, string>;
+  boton?: string;
+}
+
+export function FormularioGasto({ proveedores, categorias, hoy, puedeAltaProveedor, lectura, guardar, inicial, boton }: PropsFormulario) {
+  const [estado, accion, enviando] = useActionState(guardar ?? guardarGasto, {});
+  const v = (k: string, d = "") => estado.valores?.[k] ?? lectura?.valores?.[k] ?? inicial?.[k] ?? d;
   const duplicados = estado.posiblesDuplicados ?? [];
   const documentoId = v("documentoId", lectura?.documentoId ?? "");
   const nuevo = lectura?.proveedorNuevo;
@@ -133,8 +141,8 @@ function FormularioGasto({ proveedores, categorias, hoy, puedeAltaProveedor, lec
         <label>Forma de pago<input name="metodo" defaultValue={v("metodo")} /></label>
         <label>Notas<input name="notas" defaultValue={v("notas")} /></label>
       </div>
-      {!documentoId && <p className="muted" style={{ fontSize: 12, margin: 0 }}>Sin justificante, el gasto queda marcado como pendiente de documentación hasta que se adjunte.</p>}
-      <div><button className="btn" disabled={enviando}>{enviando ? "Guardando…" : "Guardar gasto"}</button></div>
+      {!documentoId && !inicial && <p className="muted" style={{ fontSize: 12, margin: 0 }}>Sin justificante, el gasto queda marcado como pendiente de documentación hasta que se adjunte.</p>}
+      <div><button className="btn" disabled={enviando}>{enviando ? "Guardando…" : boton ?? "Guardar gasto"}</button></div>
     </form>
   );
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, enEmpresa } from "@/db/cliente";
 import { requerirSesion, ROLES_FACTURACION, ROLES_GASTOS } from "@/lib/auth/sesion";
@@ -13,6 +14,15 @@ import { BotonQuitarJustificante, FormularioAdjuntar } from "./justificantes";
 export const dynamic = "force-dynamic";
 
 const TIPO_DOC: Record<string, string> = { factura: "Factura", factura_simplificada: "Factura simplificada", ticket: "Ticket", otro: "Otro justificante" };
+const ACCIONES: Record<string, string> = {
+  registrar_gasto: "Registrado", editar_gasto: "Editado", gasto_a_papelera: "Enviado a la papelera", gasto_restaurado: "Restaurado",
+  adjuntar_justificante: "Justificante adjuntado", registrar_pago: "Pago registrado",
+};
+const CAMPOS: Record<string, string> = {
+  proveedor_id: "proveedor", numero: "número", tipo_documento: "tipo", fecha_expedicion: "fecha", categoria: "categoría",
+  subcategoria: "subcategoría", descripcion: "descripción", base_cent: "base", cuota_iva_cent: "cuota", cuota_deducible_cent: "IVA deducible",
+  retencion_pct: "retención", retencion_cent: "retención", total_cent: "total", vencimiento: "vencimiento", metodo_pago: "forma de pago", notas: "notas",
+};
 const fechaES = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "—");
 
 export default async function Gasto({ params }: { params: Promise<{ id: string }> }) {
@@ -29,10 +39,14 @@ export default async function Gasto({ params }: { params: Promise<{ id: string }
     const pagos = await tx`SELECT id, to_char(fecha,'DD/MM/YYYY') AS fecha, importe_cent, metodo, notas FROM pagos WHERE gasto_id = ${id} ORDER BY fecha, creado_en`;
     const documentos = await tx`SELECT id, nombre, mime, tamano_bytes, sha256, to_char(creado_en AT TIME ZONE 'Europe/Madrid','DD/MM/YYYY HH24:MI') AS subido
       FROM documentos WHERE entidad = 'gasto' AND entidad_id = ${id} AND borrado_en IS NULL ORDER BY creado_en`;
-    return { g, desglose, pagos, documentos };
+    const historial = await tx<{ id: string; accion: string; cuando: string; usuario: string | null; despues: { cambios?: string[] } | null }[]>`
+      SELECT e.id, e.accion, to_char(e.creado_en AT TIME ZONE 'Europe/Madrid','DD/MM/YYYY HH24:MI') AS cuando, u.nombre AS usuario, e.despues
+      FROM eventos_auditoria e LEFT JOIN usuarios u ON u.id = e.usuario_id
+      WHERE e.entidad = 'gasto' AND e.entidad_id = ${id} ORDER BY e.creado_en DESC LIMIT 50`;
+    return { g, desglose, pagos, documentos, historial };
   });
   if (!datos) notFound();
-  const { g, desglose, pagos, documentos } = datos;
+  const { g, desglose, pagos, documentos, historial } = datos;
   const hoy = hoyMadrid();
   const totalCent = Number(g.total_cent);
   const pagadoCent = pagos.reduce((a, p) => a + Number(p.importe_cent), 0);
@@ -57,6 +71,7 @@ export default async function Gasto({ params }: { params: Promise<{ id: string }
           <b>Total: {formatearEuros(totalCent)}</b>
         </p>
         {g.notas && <p className="muted">{g.notas}</p>}
+        {puedeGestionar && !g.borrado && <Link className="btn btn-sec" href={`/gastos/${id}/editar`}>Editar</Link>}
       </div>
       <div className="panel">
         <b>Justificantes</b>
@@ -90,6 +105,17 @@ export default async function Gasto({ params }: { params: Promise<{ id: string }
           <FormularioMovimiento accion={pagar.bind(null, id)} pendiente={pendienteTexto} hoy={hoy} titulo="Registrar pago" boton="Registrar pago" />
         )}
       </div>
+      {historial.length > 0 && (
+        <div className="panel">
+          <b>Historial</b>
+          <table>
+            <tbody>{historial.map((h) => (
+              <tr key={h.id}><td>{h.cuando}</td><td>{h.usuario ?? "—"}</td>
+                <td>{ACCIONES[h.accion] ?? h.accion}{h.despues?.cambios?.length ? `: ${[...new Set(h.despues.cambios.map((c) => CAMPOS[c] ?? c))].join(", ")}` : ""}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
       {puedeGestionar && (
         <div className="panel">
           {g.borrado ? <BotonRestaurar accion={restaurar.bind(null, id)} /> : <BotonPapelera accion={aPapelera.bind(null, id)} />}

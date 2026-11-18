@@ -2,8 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
 import { execSync } from "node:child_process";
 import { enEmpresa } from "@/db/cliente";
+import { registrarPago } from "@/lib/cobros/registrar";
 import { adjuntarAGasto, asignarBorrador, documentoAPapelera, guardarLectura, leerDocumento, subirBorrador } from "@/lib/documentos/almacen";
-import { moverGastoAPapelera, registrarGasto, restaurarGasto, type BorradorGasto } from "@/lib/gastos/registrar";
+import { editarGasto, moverGastoAPapelera, registrarGasto, restaurarGasto, type BorradorGasto } from "@/lib/gastos/registrar";
 import { altaTercero } from "@/lib/terceros/alta";
 
 const URL_TEST = process.env.DATABASE_URL_TEST;
@@ -129,5 +130,28 @@ d("justificantes en PostgreSQL", () => {
     expect(await enEmpresa(sql, empB, (tx) => leerDocumento(tx, doc.id))).toBeNull();
     expect(await enEmpresa(sql, empB, (tx) => tx`SELECT * FROM documentos_contenido`)).toHaveLength(0);
     await expect(enEmpresa(sql, empB, (tx) => asignarBorrador(tx, { empresaId: empB }, doc.id, g))).rejects.toThrow(/ya no está disponible/);
+  });
+
+  it("edita un gasto y deja en la auditoría el antes y el después", async () => {
+    const g = await nuevoGasto({ numero: "E-1" });
+    const r = await editarGasto(sql, ctx(), g, gasto({ numero: "E-1", desglose: [{ baseCent: 20000, tipoIva: 10, deduciblePct: 50 }], descripcion: "Corregido" }));
+    expect(r).toMatchObject({ guardado: true, totalCent: 22000 });
+    const [f] = await enEmpresa(sql, empA, (tx) => tx`SELECT total_cent, cuota_deducible_cent, descripcion FROM gastos WHERE id = ${g}`);
+    expect(f).toMatchObject({ total_cent: "22000", cuota_deducible_cent: "1000", descripcion: "Corregido" });
+    expect(await enEmpresa(sql, empA, (tx) => tx`SELECT tipo_iva, base_cent FROM desglose_gasto WHERE gasto_id = ${g}`)).toEqual([{ tipo_iva: "10.00", base_cent: "20000" }]);
+    const [ev] = await enEmpresa(sql, empA, (tx) => tx`SELECT antes, despues FROM eventos_auditoria WHERE accion = 'editar_gasto' AND entidad_id = ${g}`);
+    expect(ev.antes).toMatchObject({ total_cent: "12100", descripcion: "Luz" });
+    expect(ev.despues.cambios).toEqual(expect.arrayContaining(["total_cent", "descripcion", "base_cent"]));
+    expect(ev.despues.cambios).not.toContain("numero");
+  });
+
+  it("al editar no deja duplicar otra factura ni bajar el total por debajo de lo pagado", async () => {
+    const a = await nuevoGasto({ numero: "D-1" });
+    const b = await nuevoGasto({ numero: "D-2" });
+    await expect(editarGasto(sql, ctx(), b, gasto({ numero: "d-1" }))).rejects.toThrow(/ya está registrada/);
+    await registrarPago(sql, { ...ctx(), hoy: "2026-11-17" }, a, { fecha: "2026-11-15", importeCent: 12100, metodo: "Transferencia" });
+    await expect(editarGasto(sql, ctx(), a, gasto({ numero: "D-1", desglose: [{ baseCent: 5000, tipoIva: 21 }] }))).rejects.toThrow(/pagados/);
+    await moverGastoAPapelera(sql, ctx(), b, "Error");
+    await expect(editarGasto(sql, ctx(), b, gasto({ numero: "D-2" }))).rejects.toThrow(/papelera/);
   });
 });
