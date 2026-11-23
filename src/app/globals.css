@@ -74,3 +74,4 @@ label input,label select,label textarea{width:100%;box-sizing:border-box;min-wid
 .campo-contrasena .ojo{position:absolute;top:50%;right:6px;transform:translateY(-50%);width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer;padding:0}
 .campo-contrasena .ojo:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,transparent)}
 .campo-contrasena .ojo:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.acceso-form .nota a{color:var(--accent);text-decoration:none;font-weight:500}.acceso-form .nota a:hover{text-decoration:underline}

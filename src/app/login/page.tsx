@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState } from "react";
 import { entrar } from "./acciones";
 import { CampoContrasena } from "@/app/campo-contrasena";
@@ -13,6 +14,7 @@ export default function Login() {
       <label>Email<input type="email" name="email" defaultValue={estado.email ?? ""} autoComplete="username" placeholder="tu@empresa.com" autoFocus required /></label>
       <label>Contraseña<CampoContrasena name="contrasena" autoComplete="current-password" placeholder="••••••••" required /></label>
       <button className="btn" disabled={enviando}>{enviando ? "Entrando…" : "Entrar"}</button>
+      <p className="nota"><Link href="/login/recuperar">¿Has olvidado tu contraseña?</Link></p>
       <p className="nota">Conexión cifrada · Verificación en dos pasos disponible</p>
     </form>
   );
